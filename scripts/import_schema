@@ -1,0 +1,4 @@
+#!/usr/bin/env Rscript
+copy <- c("metadata.json", "id.json", "hash.json", "config.json")
+src <- system.file(file.path("schema", copy), package = "outpack")
+fs::file_copy(src, file.path("schema"), overwrite = TRUE)
