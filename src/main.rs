@@ -1,44 +1,36 @@
-use std::io;
-use rocket::serde::{Deserialize, Serialize};
-use rocket::serde::json::{Json};
-use rocket::http::{ContentType};
+extern crate getopts;
+use getopts::Options;
+use std::env;
 
-#[macro_use]
-extern crate rocket;
-
-mod location;
-mod config;
-
-#[derive(Responder)]
-#[response(status = 500, content_type = "json")]
-struct ErrorResponder {
-    inner: Json<ApiError>,
-    header: ContentType,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct ApiError {
-    message: String,
-}
-
-impl From<io::Error> for ErrorResponder {
-    fn from(e: io::Error) -> Self {
-        ErrorResponder { inner: Json(ApiError { message: e.to_string() }), header: ContentType::JSON }
-    }
-}
-
-#[get("/")]
-fn index() -> Result<Json<config::Config>, ErrorResponder> {
-    return Ok(Json(config::read_config("montagu-reports")?));
-}
-
-#[get("/metadata/list")]
-fn list() -> Result<Json<Vec<location::LocationEntry>>, ErrorResponder> {
-    return Ok(Json(location::read_locations("montagu-reports")?));
+fn print_usage(program: &str, opts: getopts::Options) {
+    let brief = format!("Usage: {} [options]", program);
+    print!("{}", opts.usage(&brief));
 }
 
 #[rocket::main]
 #[allow(unused_must_use)]
 async fn main() {
-    rocket::build().mount("/", routes![index, list]).launch().await;
+    let args: Vec<String> = env::args().collect();
+    let program = args[0].clone();
+
+    let mut opts = Options::new();
+    opts.reqopt("r", "root", "outpack root path (required)", ".");
+    opts.optflag("h", "help", "print this help menu");
+    let matches = match opts.parse(&args[1..]) {
+        Ok(m) => { m }
+        Err(f) => {
+            print_usage(&program, opts);
+            panic!("{}", f.to_string())
+        }
+    };
+    if matches.opt_present("h") {
+        print_usage(&program, opts);
+        return;
+    }
+    if matches.opt_present("r")  {
+        outpackserver::api(matches.free[0].clone()).launch().await;
+    } else {
+        print_usage(&program, opts);
+        return;
+    };
 }

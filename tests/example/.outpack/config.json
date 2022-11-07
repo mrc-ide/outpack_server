@@ -1,0 +1,18 @@
+{
+  "schema_version": "0.0.1",
+  "core": {
+    "path_archive": null,
+    "use_file_store": true,
+    "require_complete_tree": true,
+    "hash_algorithm": "sha256"
+  },
+  "location": [
+    {
+      "name": "local",
+      "id": "ae7a7bcb",
+      "priority": 0,
+      "type": "local",
+      "args": []
+    }
+  ]
+}
