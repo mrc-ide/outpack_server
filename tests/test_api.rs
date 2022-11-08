@@ -3,7 +3,7 @@ use rocket::http::{ContentType, Status};
 
 #[test]
 fn can_get_index() {
-    let rocket = outpackserver::api(String::from("tests/example"));
+    let rocket = outpack_server::api(String::from("tests/example"));
     let client = Client::tracked(rocket).expect("valid rocket instance");
     let response = client.get("/").dispatch();
 
@@ -14,7 +14,7 @@ fn can_get_index() {
 
 #[test]
 fn can_get_metadata() {
-    let rocket = outpackserver::api(String::from("tests/example"));
+    let rocket = outpack_server::api(String::from("tests/example"));
     let client = Client::tracked(rocket).expect("valid rocket instance");
     let response = client.get("/").dispatch();
 

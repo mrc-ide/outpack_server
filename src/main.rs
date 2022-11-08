@@ -7,15 +7,12 @@ fn print_usage(program: &str, opts: getopts::Options) {
     print!("{}", opts.usage(&brief));
 }
 
-#[rocket::main]
-#[allow(unused_must_use)]
-async fn main() {
-    let args: Vec<String> = env::args().collect();
+fn parse_args(args: &[String]) -> Option<String> {
+
     let program = args[0].clone();
 
     let mut opts = Options::new();
     opts.reqopt("r", "root", "outpack root path (required)", ".");
-    opts.optflag("h", "help", "print this help menu");
     let matches = match opts.parse(&args[1..]) {
         Ok(m) => { m }
         Err(f) => {
@@ -23,14 +20,37 @@ async fn main() {
             panic!("{}", f.to_string())
         }
     };
-    if matches.opt_present("h") {
-        print_usage(&program, opts);
-        return;
-    }
-    if matches.opt_present("r")  {
-        outpackserver::api(matches.free[0].clone()).launch().await;
+    return Some(matches.opt_str("r").unwrap());
+}
+
+#[rocket::main]
+#[allow(unused_must_use)]
+async fn main() {
+    let args = env::args().collect::<Vec<_>>();
+    let root = parse_args(&args);
+    if root.is_some() {
+        outpack_server::api(root.unwrap()).launch().await;
     } else {
-        print_usage(&program, opts);
         return;
     };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn can_parse_args() {
+        let root = parse_args(&[String::from("program"), String::from("--root"), String::from("test")]).unwrap();
+        assert_eq!(root, "test");
+
+        let root = parse_args(&[String::from("program"), String::from("-r"), String::from("test")]).unwrap();
+        assert_eq!(root, "test");
+    }
+
+    #[test]
+    #[should_panic]
+    fn panics_if_args_not_valid() {
+        parse_args(&[String::from("program")]);
+    }
 }

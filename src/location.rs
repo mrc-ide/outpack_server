@@ -4,7 +4,6 @@ use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use regex::Regex;
 use walkdir::WalkDir;
-use cached::UnboundCache;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LocationEntry {
@@ -16,7 +15,7 @@ pub struct LocationEntry {
 const ID_REG: &'static str = "^([0-9]{8}-[0-9]{6}-[[:xdigit:]]{8})$";
 
 cached_result! {
-    MULT: UnboundCache<PathBuf, LocationEntry> = UnboundCache::new();
+    ENTRY_CACHE: cached::UnboundCache<PathBuf, LocationEntry> = cached::UnboundCache::new();
     fn read_entry(path: PathBuf) -> io::Result<LocationEntry> = {
         let file = fs::File::open(path)?;
         let entry: LocationEntry = serde_json::from_reader(file)?;

@@ -4,7 +4,6 @@ use rocket::serde::json::{Json};
 use rocket::http::{ContentType};
 use rocket::{Build, Rocket};
 use rocket::State;
-use cached::UnboundCache;
 
 #[macro_use]
 extern crate rocket;

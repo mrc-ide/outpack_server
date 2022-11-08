@@ -1,4 +1,4 @@
-use outpackserver::location;
+use outpack_server::location;
 
 #[test]
 fn can_read_location_entries() {
@@ -12,5 +12,4 @@ fn can_read_location_entries() {
                "sha256:5380b3c9a1f93ab3aeaf1ed6367b98aba73dc6bfae3f68fe7d9fe05f57479cbf");
 
     assert_eq!(entries[1].packet, "20170818-164043-7cdcde4b");
-
 }
