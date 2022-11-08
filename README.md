@@ -10,6 +10,10 @@ E.g.
 
 ```cargo run -- --root tests/example```
 
+## Schema
+The outpack schema is imported into this package by running `./scripts/import_schema`, 
+and needs to be kept manually up to date by re-running that script as needed.
+
 ## Tests
 Run all tests with `cargo test`.
 
