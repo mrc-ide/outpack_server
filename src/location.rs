@@ -37,6 +37,7 @@ pub fn read_locations(root_path: &str) -> io::Result<Vec<LocationEntry>> {
         .join("location");
 
     let packets = WalkDir::new(path.clone())
+        .sort_by_file_name()
         .into_iter()
         .filter_map(|e| e.ok())
         .filter(|e| is_packet(e.file_name()))
