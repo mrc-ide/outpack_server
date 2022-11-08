@@ -12,23 +12,23 @@ pub struct LocationEntry {
     pub hash: String,
 }
 
-const ID_REG: &'static str = "^([0-9]{8}-[0-9]{6}-[[:xdigit:]]{8})$";
+const ID_REG: &str = "^([0-9]{8}-[0-9]{6}-[[:xdigit:]]{8})$";
 
 cached_result! {
     ENTRY_CACHE: cached::UnboundCache<PathBuf, LocationEntry> = cached::UnboundCache::new();
     fn read_entry(path: PathBuf) -> io::Result<LocationEntry> = {
         let file = fs::File::open(path)?;
         let entry: LocationEntry = serde_json::from_reader(file)?;
-        return Ok(entry);
+        Ok(entry)
     }
 }
 
 fn is_packet(name: &OsStr) -> bool {
     let reg = Regex::new(ID_REG).unwrap();
-    return name
+    name
         .to_str()
         .map(|s| reg.is_match(s))
-        .unwrap_or(false);
+        .unwrap_or(false)
 }
 
 pub fn read_locations(root_path: &str) -> io::Result<Vec<LocationEntry>> {
@@ -36,7 +36,7 @@ pub fn read_locations(root_path: &str) -> io::Result<Vec<LocationEntry>> {
         .join(".outpack")
         .join("location");
 
-    let packets = WalkDir::new(path.clone())
+    let packets = WalkDir::new(path)
         .sort_by_file_name()
         .into_iter()
         .filter_map(|e| e.ok())
@@ -44,7 +44,7 @@ pub fn read_locations(root_path: &str) -> io::Result<Vec<LocationEntry>> {
         .map(|entry| read_entry(entry.into_path()))
         .collect::<io::Result<Vec<LocationEntry>>>()?;
 
-    return Ok(packets);
+    Ok(packets)
 }
 
 #[cfg(test)]

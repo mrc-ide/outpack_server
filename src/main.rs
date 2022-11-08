@@ -8,9 +8,7 @@ fn print_usage(program: &str, opts: getopts::Options) {
 }
 
 fn parse_args(args: &[String]) -> Option<String> {
-
     let program = args[0].clone();
-
     let mut opts = Options::new();
     opts.reqopt("r", "root", "outpack root path (required)", ".");
     let matches = match opts.parse(&args[1..]) {
@@ -20,7 +18,7 @@ fn parse_args(args: &[String]) -> Option<String> {
             panic!("{}", f.to_string())
         }
     };
-    return Some(matches.opt_str("r").unwrap());
+    Some(matches.opt_str("r").unwrap())
 }
 
 #[rocket::main]
@@ -30,9 +28,7 @@ async fn main() {
     let root = parse_args(&args);
     if root.is_some() {
         outpack_server::api(root.unwrap()).launch().await;
-    } else {
-        return;
-    };
+    }
 }
 
 #[cfg(test)]

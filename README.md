@@ -4,7 +4,8 @@
 Rust implementation of the `outpack` HTTP API.
 
 ## Usage
-Start an API for `outpack` root with `cargo run -- --root <path>`.
+Start with `cargo run -- --root <path>`. Or build the binary
+ with `cargo build` and run directly with `target/debug/outpack_server run --root <path>`
 
 E.g.
 

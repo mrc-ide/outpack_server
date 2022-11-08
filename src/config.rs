@@ -16,5 +16,5 @@ pub fn read_config(root_path: &str) -> Result<Config, Error> {
 
     let config_file = File::open(path)?;
     let config: Config = serde_json::from_reader(config_file)?;
-    return Ok(config);
+    Ok(config)
 }
