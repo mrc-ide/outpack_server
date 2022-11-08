@@ -41,3 +41,6 @@ Run all tests with `cargo test`.
     }
 ]
 ```
+
+## License
+MIT © Imperial College of Science, Technology and Medicine

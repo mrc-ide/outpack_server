@@ -1,0 +1,21 @@
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+name: test
+
+jobs:
+  build_and_test:
+    name: Rust project
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - name: Check
+        run: cargo check --release --all-features
+      - name: Test
+        run: cargo test
