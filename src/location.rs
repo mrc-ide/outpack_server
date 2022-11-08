@@ -4,8 +4,9 @@ use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use regex::Regex;
 use walkdir::WalkDir;
+use cached::UnboundCache;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LocationEntry {
     pub packet: String,
     pub time: f32,
@@ -14,10 +15,13 @@ pub struct LocationEntry {
 
 const ID_REG: &'static str = "^([0-9]{8}-[0-9]{6}-[[:xdigit:]]{8})$";
 
-fn read_entry(path: PathBuf) -> io::Result<LocationEntry> {
-    let file = fs::File::open(path)?;
-    let entry: LocationEntry = serde_json::from_reader(file)?;
-    return Ok(entry);
+cached_result! {
+    MULT: UnboundCache<PathBuf, LocationEntry> = UnboundCache::new();
+    fn read_entry(path: PathBuf) -> io::Result<LocationEntry> = {
+        let file = fs::File::open(path)?;
+        let entry: LocationEntry = serde_json::from_reader(file)?;
+        return Ok(entry);
+    }
 }
 
 fn is_packet(name: &OsStr) -> bool {
@@ -25,7 +29,7 @@ fn is_packet(name: &OsStr) -> bool {
     return name
         .to_str()
         .map(|s| reg.is_match(s))
-        .unwrap_or(false)
+        .unwrap_or(false);
 }
 
 pub fn read_locations(root_path: &str) -> io::Result<Vec<LocationEntry>> {
@@ -45,7 +49,6 @@ pub fn read_locations(root_path: &str) -> io::Result<Vec<LocationEntry>> {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
 
     #[test]

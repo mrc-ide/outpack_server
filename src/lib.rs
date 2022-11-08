@@ -4,9 +4,13 @@ use rocket::serde::json::{Json};
 use rocket::http::{ContentType};
 use rocket::{Build, Rocket};
 use rocket::State;
+use cached::UnboundCache;
 
 #[macro_use]
 extern crate rocket;
+
+#[macro_use]
+extern crate cached;
 
 pub mod location;
 pub mod config;
@@ -23,7 +27,9 @@ fn list(root: &State<String>) -> Result<Json<Vec<location::LocationEntry>>, Erro
 }
 
 pub fn api(root: String) -> Rocket<Build> {
-    return rocket::build().manage(root).mount("/", routes![index, list]);
+    return rocket::build()
+        .manage(root)
+        .mount("/", routes![index, list]);
 }
 
 #[derive(Responder)]
