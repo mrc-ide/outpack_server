@@ -20,6 +20,7 @@ pub struct Packet {
     pub parameters: Option<HashMap<String, serde_json::Value>>,
 }
 
+
 pub enum ParameterValue<'a> {
     Bool(bool),
     String(&'a str),
@@ -28,7 +29,7 @@ pub enum ParameterValue<'a> {
 }
 
 impl Packet {
-    pub fn get_parameter(&self, param_name: &str) ->  Option<&serde_json::Value> {
+    fn get_parameter(&self, param_name: &str) ->  Option<&serde_json::Value> {
         match &(self.parameters) {
             Some(params) => params.get(param_name),
             None => None
