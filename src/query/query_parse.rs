@@ -3,6 +3,7 @@ use crate::query::QueryError;
 use lazy_static::lazy_static;
 use pest::Parser;
 use regex::Regex;
+use crate::metadata::ParameterValue;
 
 #[derive(Parser)]
 #[grammar = "query/query.pest"]
@@ -52,8 +53,27 @@ fn parse_query_content(query: pest::iterators::Pair<Rule>) -> Result<QueryNode, 
                         }
                         _ => unreachable!(),
                     };
-                    let search_term = get_string_inner(get_first_inner_pair(second_arg));
-                    Ok(QueryNode::Lookup(lookup_type, search_term))
+                    println!("{:?}", second_arg);
+                    let rhs = get_first_inner_pair(second_arg);
+                    match rhs.as_rule() {
+                        Rule::string => {
+                            let search_term = ParameterValue::String(get_string_inner(rhs));
+                            Ok(QueryNode::Lookup(lookup_type, search_term))
+                        },
+                        Rule::integer => {
+                            let search_term = ParameterValue::Integer(rhs.as_str());
+                            Ok(QueryNode::Lookup(lookup_type, search_term))
+                        },
+                        Rule::float => {
+                            let search_term = ParameterValue::Float(rhs.as_str());
+                            Ok(QueryNode::Lookup(lookup_type, search_term))
+                        },
+                        Rule::bool => {
+                            let search_term = ParameterValue::Bool(rhs.as_str());
+                            Ok(QueryNode::Lookup(lookup_type, search_term))
+                        },
+                        _ => unreachable!(),
+                    }
                 }
                 _ => {
                     let err = pest::error::Error::new_from_span(

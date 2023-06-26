@@ -20,7 +20,7 @@ pub struct Packet {
     pub parameters: Option<HashMap<String, serde_json::Value>>,
 }
 
-
+#[derive(Debug)]
 pub enum ParameterValue<'a> {
     Bool(bool),
     String(&'a str),

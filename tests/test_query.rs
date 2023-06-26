@@ -92,4 +92,28 @@ fn can_get_packet_by_parameter() {
     let packets =
         outpack::query::run_query(root_path, "latest(parameter:unknown == \"YF\")").unwrap();
     assert_eq!(packets, "Found no packets");
+
+    let packets =
+        outpack::query::run_query(root_path, "latest(parameter:size == 10)").unwrap();
+    assert_eq!(packets, "20180220-095832-16a4bbed");
+    let packets =
+        outpack::query::run_query(root_path, "latest(parameter:size == \"10\")").unwrap();
+    assert_eq!(packets, "20180220-095832-16a4bbed");
+
+    let packets =
+        outpack::query::run_query(root_path, "latest(parameter:tolerance == 0.001)").unwrap();
+    assert_eq!(packets, "20180220-095832-16a4bbed");
+    let packets =
+        outpack::query::run_query(root_path, "latest(parameter:tolerance == \"0.001\")").unwrap();
+    assert_eq!(packets, "20180220-095832-16a4bbed");
+
+    let packets =
+        outpack::query::run_query(root_path, "latest(parameter:pull_data == TRUE)").unwrap();
+    assert_eq!(packets, "20180220-095832-16a4bbed");
+    let packets =
+        outpack::query::run_query(root_path, "latest(parameter:pull_data == \"TRUE\")").unwrap();
+    assert_eq!(packets, "20180220-095832-16a4bbed");
+    let packets =
+        outpack::query::run_query(root_path, "latest(parameter:pull_data == 1)").unwrap();
+    assert_eq!(packets, "20180220-095832-16a4bbed");
 }

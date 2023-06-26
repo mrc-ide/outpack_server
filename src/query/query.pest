@@ -12,8 +12,8 @@ latest             =  { "latest" }
 
 infixExpression = { firstArg ~ infixFunction ~ secondArg }
 firstArg        = { lookup }
-secondArg       = { string }
-infixFunction   = { char* }
+secondArg       = { bool | float | integer | string }
+infixFunction   = { "==" }
 
 lookup   = _{ lookupId | lookupName | lookupParam }
 lookupId = { "id" }
@@ -22,6 +22,9 @@ lookupParam = { "parameter:" ~ lookupParamName }
 lookupParamName = { ASCII_ALPHANUMERIC* }
 
 string = ${ "\"" ~ inner ~ "\"" }
+integer = { ASCII_DIGIT+ }
+float = { ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+ }
+bool = { "TRUE" | "FALSE" }
 // Contents of string including double quotes
 inner = @{ char* }
 // Contents of string without double quotes
