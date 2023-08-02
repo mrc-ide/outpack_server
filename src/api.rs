@@ -108,7 +108,7 @@ async fn get_missing_files(root: &State<String>, hashes: Result<Json<Hashes>, Er
         .map(OutpackSuccess::from)
 }
 
-#[rocket::post("/file/<hash>", format = "binary", data = "<file>")]
+#[rocket::post("/file/<hash>", data = "<file>")]
 async fn add_file(
     root: &State<String>,
     hash: String,
@@ -119,7 +119,7 @@ async fn add_file(
         .map(OutpackSuccess::from)
 }
 
-#[rocket::post("/packet/<hash>", format = "plain", data = "<packet>")]
+#[rocket::post("/packet/<hash>", data = "<packet>")]
 async fn add_packet(
     root: &State<String>,
     hash: String,
