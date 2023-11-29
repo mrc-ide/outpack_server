@@ -1,13 +1,13 @@
 import pytest
-from outpack_query_parser import parse_query, Latest, Operator, Literal, LookupName, Literal
+from outpack_query_parser import parse_query, Latest, Literal, LookupName, Literal
 
-# Calling this Test makes pytest think it's a test class and freak out
-from outpack_query_parser import Test as NodeTest
+# Importing Test* types makes pytest freak out. Use a short module name instead.
+import outpack_query_parser as parser
 
 def test_parse():
     assert parse_query("latest") == Latest(None)
     assert parse_query("latest()") == Latest(None)
-    assert parse_query("name == 'foo'") == NodeTest(Operator.Equal, LookupName(), Literal("foo"))
+    assert parse_query("name == 'foo'") == parser.Test(parser.TestOperator.Equal, LookupName(), Literal("foo"))
 
 def test_error():
     with pytest.raises(ValueError, match="expected query"):

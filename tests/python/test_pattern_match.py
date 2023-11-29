@@ -1,8 +1,8 @@
 import pytest
-from outpack_query_parser import parse_query, Latest, Operator, Literal, LookupName, Literal
+from outpack_query_parser import parse_query, Latest, Literal, LookupName, Literal
 
-# Calling this Test makes pytest think it's a test class and freak out
-from outpack_query_parser import Test as NodeTest
+# Importing Test* types makes pytest freak out. Use a short module name instead.
+import outpack_query_parser as parser
 
 def test_pattern_match():
     match parse_query("latest"):
@@ -12,13 +12,13 @@ def test_pattern_match():
             pytest.fail("pattern did not match")
 
     match parse_query("latest(name == 'foo')"):
-        case Latest(NodeTest()):
+        case Latest(parser.Test()):
             pass
         case _:
             pytest.fail("pattern did not match")
 
     match parse_query("name == 'foo'"):
-        case NodeTest(Operator.Equal, LookupName, Literal("foo")):
+        case parser.Test(parser.TestOperator.Equal, LookupName, Literal("foo")):
             pass
         case _:
             pytest.fail("pattern did not match")
