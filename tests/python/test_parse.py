@@ -12,22 +12,3 @@ def test_parse():
 def test_error():
     with pytest.raises(ValueError, match="expected query"):
         parse_query("foo")
-
-def test_pattern_match():
-    match parse_query("latest"):
-        case Latest(None):
-            pass
-        case _:
-            pytest.fail("pattern did not match")
-
-    match parse_query("latest(name == 'foo')"):
-        case Latest(NodeTest()):
-            pass
-        case _:
-            pytest.fail("pattern did not match")
-
-    match parse_query("name == 'foo'"):
-        case NodeTest(Operator.Equal, LookupName, Literal("foo")):
-            pass
-        case _:
-            pytest.fail("pattern did not match")

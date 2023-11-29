@@ -7,3 +7,13 @@ build-backend = "maturin"
 
 [tool.maturin]
 features = ["python"]
+
+[tool.hatch.version]
+path = "Cargo.toml"
+
+[tool.hatch.envs.default]
+dependencies = [ "pytest" ]
+
+[tool.hatch.envs.default.scripts]
+test = "pytest {args:tests/python}"
+develop = "maturin develop"

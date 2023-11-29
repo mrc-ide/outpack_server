@@ -12,18 +12,27 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - {os: ubuntu-latest}
-          - {os: macos-latest}
-          - {os: windows-latest}
+          - {os: ubuntu-latest,  py: '3.8'}
+          - {os: ubuntu-latest,  py: '3.9'}
+          - {os: ubuntu-latest,  py: '3.10'}
+          - {os: ubuntu-latest,  py: '3.11'}
+          - {os: macos-latest,   py: '3.11'}
+          - {os: windows-latest, py: '3.11'}
 
-    name: ${{matrix.config.os }}
+    name: ${{matrix.config.os }} (${{ matrix.config.py }})
     runs-on: ${{ matrix.config.os }}
+
     steps:
       - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           components: clippy
+      - name: Set up Python ${{ matrix.config.py }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.config.py }}
       - name: Lint
         run: cargo clippy -- -D warnings
       - name: Format check
@@ -32,3 +41,12 @@ jobs:
         run: cargo check --release --all-features
       - name: Test
         run: cargo test
+
+      - name: Install python dependencies
+        run: |
+          python -m pip install --upgrade pip build
+          pip install hatch
+
+      - name: Run Python tests
+        run: |
+          hatch run test

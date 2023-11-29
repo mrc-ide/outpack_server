@@ -292,6 +292,18 @@ The metadata should be written directly to the request body.
 }
 ```
 
+## Python bindings
+
+This crate provides Python bindings for its query parser. The bindings can be installed using `pip install .`.
+
+### Local development
+
+```
+hatch run python  # Start a Python interpreter with the bindings installed
+hatch run test    # Run the bindings test-suite
+hatch run develop # Rebuild the bindings. Necessary whenever changes to Rust code is made.
+```
+
 ## License
 
 MIT © Imperial College of Science, Technology and Medicine
