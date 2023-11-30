@@ -29,7 +29,7 @@ The `outpack` command includes an API server which can be used to expose the
 repository over an HTTP interface.
 
 ```
-outpack api-server --root <path>
+outpack start-server --root <path>
 ```
 
 ## Usage of docker image

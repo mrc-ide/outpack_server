@@ -34,7 +34,7 @@ pub enum Command {
     Parse { query: String },
 
     /// Start the outpack API server
-    ApiServer {
+    StartServer {
         #[arg(short, long)]
         root: String,
     },

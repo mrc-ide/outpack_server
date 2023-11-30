@@ -16,4 +16,4 @@ do
     fi
 done
 echo "Found outpack root; starting server"
-outpack api-server --root /outpack
+outpack start-server --root /outpack

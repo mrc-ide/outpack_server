@@ -27,7 +27,7 @@ fn main() -> anyhow::Result<()> {
             println!("{:?}", result);
         }
 
-        Command::ApiServer { root } => {
+        Command::StartServer { root } => {
             let server = outpack::api::api(&root)?;
             rocket::execute(server.launch())?;
         }
