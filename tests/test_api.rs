@@ -57,9 +57,8 @@ fn can_get_index() {
 #[test]
 fn error_if_cant_get_index() {
     let res = outpack::api::api("bad-root");
-    assert!(res.is_err());
     assert_eq!(
-        res.unwrap_err(),
+        res.unwrap_err().to_string(),
         String::from("Outpack root not found at 'bad-root'")
     );
 }

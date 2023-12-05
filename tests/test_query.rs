@@ -1,19 +1,8 @@
-use std::process::Command;
-
-use assert_cmd::prelude::*;
-use predicates::prelude::*;
-
 use outpack::query::QueryError;
 
 pub fn test_query(root: &str, query: &str, result: &str) {
     let packets = outpack::query::run_query(root, query).unwrap();
     assert_eq!(packets, result);
-}
-
-#[test]
-fn prints_usage_if_args_invalid() {
-    let mut cmd = Command::cargo_bin("outpack_query").unwrap();
-    cmd.assert().stdout(predicate::str::contains("Usage:"));
 }
 
 #[test]

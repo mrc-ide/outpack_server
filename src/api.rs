@@ -1,3 +1,4 @@
+use anyhow::{bail, Context};
 use rocket::fs::TempFile;
 use rocket::serde::json::{Error, Json};
 use rocket::serde::{Deserialize, Serialize};
@@ -166,41 +167,40 @@ struct Hashes {
     hashes: Vec<String>,
 }
 
-pub fn check_config(config: &config::Config) -> Result<(), String> {
+pub fn check_config(config: &config::Config) -> anyhow::Result<()> {
     // These two are probably always constraints for using the server:
     if !config.core.use_file_store {
-        return Err(String::from(
-            "Outpack must be configured to use a file store",
-        ));
+        bail!("Outpack must be configured to use a file store");
     }
     if !config.core.require_complete_tree {
-        return Err(String::from(
-            "Outpack must be configured to require a complete tree",
-        ));
+        bail!("Outpack must be configured to require a complete tree");
     }
     // These two we can relax over time:
     if config.core.hash_algorithm != hash::HashAlgorithm::Sha256 {
-        return Err(format!(
+        bail!(
             "Outpack must be configured to use hash algorithm 'sha256', but you are using '{}'",
             config.core.hash_algorithm
-        ));
+        );
     }
     if config.core.path_archive.is_some() {
-        return Err(format!(
+        bail!(
             "Outpack must be configured to *not* use an archive, but your path_archive is '{}'",
             config.core.path_archive.as_ref().unwrap()
-        ));
+        );
     }
     Ok(())
 }
 
-pub fn preflight(root_path: &str) -> Result<(), String> {
+pub fn preflight(root_path: &str) -> anyhow::Result<()> {
     if !Path::new(&root_path).join(".outpack").exists() {
-        return Err(format!("Outpack root not found at '{}'", root_path));
+        bail!("Outpack root not found at '{}'", root_path);
     }
+
     let config = config::read_config(root_path)
-        .map_err(|e| format!("Failed to read outpack config from '{}': {}", root_path, e))?;
-    check_config(&config)
+        .with_context(|| format!("Failed to read outpack config from '{}'", root_path))?;
+
+    check_config(&config)?;
+    Ok(())
 }
 
 fn api_build(root: &str) -> Rocket<Build> {
@@ -225,7 +225,7 @@ fn api_build(root: &str) -> Rocket<Build> {
         )
 }
 
-pub fn api(root: &str) -> Result<Rocket<Build>, String> {
+pub fn api(root: &str) -> anyhow::Result<Rocket<Build>> {
     preflight(root)?;
     Ok(api_build(root))
 }
@@ -253,23 +253,21 @@ mod tests {
     #[test]
     fn can_validate_config() {
         let res = check_config(&make_config(hash::HashAlgorithm::Sha1, None, true, true));
-        assert_eq!(res,
-                   Err(String::from("Outpack must be configured to use hash algorithm 'sha256', but you are using 'sha1'")));
+        assert_eq!(
+            res.unwrap_err().to_string(),
+            "Outpack must be configured to use hash algorithm 'sha256', but you are using 'sha1'"
+        );
 
         let res = check_config(&make_config(hash::HashAlgorithm::Sha256, None, false, true));
         assert_eq!(
-            res,
-            Err(String::from(
-                "Outpack must be configured to use a file store"
-            ))
+            res.unwrap_err().to_string(),
+            "Outpack must be configured to use a file store"
         );
 
         let res = check_config(&make_config(hash::HashAlgorithm::Sha256, None, true, false));
         assert_eq!(
-            res,
-            Err(String::from(
-                "Outpack must be configured to require a complete tree"
-            ))
+            res.unwrap_err().to_string(),
+            "Outpack must be configured to require a complete tree"
         );
 
         let res = check_config(&make_config(
@@ -278,7 +276,6 @@ mod tests {
             true,
             true,
         ));
-        assert_eq!(res,
-                   Err(String::from("Outpack must be configured to *not* use an archive, but your path_archive is 'archive'")));
+        assert_eq!(res.unwrap_err().to_string(), "Outpack must be configured to *not* use an archive, but your path_archive is 'archive'");
     }
 }

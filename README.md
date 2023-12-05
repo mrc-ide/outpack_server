@@ -2,33 +2,34 @@
 
 [![Project Status: Concept – Minimal or no implementation has been done yet, or the repository is only intended to be a limited example, demo, or proof-of-concept.](https://www.repostatus.org/badges/latest/concept.svg)](https://www.repostatus.org/#concept)
 
-Rust implementation of `outpack`. This crate provides three binaries:
+Rust implementation of `outpack`.
 
-* `outpack`: an outpack CLI, designed to interact with any outpack archive
-* `outpack_server`: an HTTP server, implementing the outpack API
-* `outpack_query`: a CLI for querying the outpack archive
+## Usage
+This crate provides an `outpack` command which can be used to create and operate on Outpack repositories.
 
-## Cli usage
+The command can be built with `cargo build`, after which it can be found in `target/debug/outpack`.
+Alternatively it can be started directly by using `cargo run`.
 
-```
-cargo run --bin outpack -- --root <path>
-```
-
-## Query CLI usage
+### Initializing a new repository
 
 ```
-cargo run --bin outpack_query -- --query <query> --root <path>
+outpack init --use-file-store <path>
 ```
 
-## Server usage
 
-Start with `cargo run --bin outpack_server -- --root <path>`. Or build the binary
-with `cargo build` and run directly with `target/debug/outpack_server run --root <path>`
-
-E.g.
+### Query CLI usage
 
 ```
-cargo run --bin outpack_server -- --root tests/example
+outpack query --root <path> <query>
+```
+
+### API Server
+
+The `outpack` command includes an API server which can be used to expose the
+repository over an HTTP interface.
+
+```
+outpack start-server --root <path>
 ```
 
 ## Usage of docker image
@@ -46,7 +47,8 @@ and needs to be kept manually up to date by re-running that script as needed.
 
 Run all tests with `cargo test`.
 
-## GET /
+## API
+### GET /
 
 ```
 {
@@ -58,7 +60,7 @@ Run all tests with `cargo test`.
 }
 ```
 
-## GET /checksum
+### GET /checksum
 
 Returns hash of all current packet ids, ordered alphanumerically and concatenated. This will use the hashing algorithm specified 
 in the `outpack` config, unless a query parameter specifying an alternative is passed: 
@@ -72,7 +74,7 @@ e.g. `/checksum?alg=md5`.
 }
 ```
 
-## GET /metadata/list
+### GET /metadata/list
 
 ```
 {
@@ -103,7 +105,7 @@ e.g. `/checksum?alg=md5`.
 }
 ```
 
-## GET /packit/metadata
+### GET /packit/metadata
 
 Returns a list of (truncated) packet metadata. 
 Accepts an optional query parameter `known_since` specifying a Unix epoch time 
@@ -133,7 +135,7 @@ e.g. `/packit/metadata?known_since=1683117048`.
 ```
 
 
-## GET /metadata/\<id\>/json
+### GET /metadata/\<id\>/json
 
 ```
 {
@@ -198,17 +200,17 @@ e.g. `/packit/metadata?known_since=1683117048`.
 }
 ```
 
-## GET /metadata/\<id\>/text
+### GET /metadata/\<id\>/text
 
 Returns the same as `GET /metadata/<id>/json` but just the data as plain text.
 
-## GET /file/\<hash\>
+### GET /file/\<hash\>
 
 Downloads the file with the provided hash. 404 if it doesn't exist.
 
-## POST /packets/missing
+### POST /packets/missing
 
-### Body
+#### Body
 
 ```json
 {
@@ -220,7 +222,7 @@ Downloads the file with the provided hash. 404 if it doesn't exist.
 Given a list of ids, returns those that are missing in the current root. If `unpacked` is true
 returns missing unpacked packets, otherwise just looks at missing metadata. 
 
-### Response
+#### Response
 ```
 {
   "status": "success",
@@ -229,9 +231,9 @@ returns missing unpacked packets, otherwise just looks at missing metadata.
 }
 ```
 
-## POST /files/missing
+### POST /files/missing
 
-### Body
+#### Body
 ```json
 {
   "hashes": [
@@ -243,7 +245,7 @@ returns missing unpacked packets, otherwise just looks at missing metadata.
 
 Given a list of file hashes, returns those that are missing in the current root.
 
-### Response
+#### Response
 ```
 {
   "status": "success",
@@ -252,16 +254,16 @@ Given a list of file hashes, returns those that are missing in the current root.
 }
 ```
 
-## POST /file/<hash>
+### POST /file/<hash>
 
 Upload a file with the given hash. Returns a 400 if the hash does not match the file contents.
 This method is idempotent; if the file already exists it will not do anything.
 
-### Body
+#### Body
 
 The file contents should be written directly to the request body.
 
-### Response
+#### Response
 
 ```
 {
@@ -271,16 +273,16 @@ The file contents should be written directly to the request body.
 }
 ```
 
-## POST /packet/<hash>
+### POST /packet/<hash>
 
 Upload packet metadata with the given hash. Returns a 400 if the hash does not match the contents.
 This method is idempotent; if the file already exists it will not do anything.
 
-### Body
+#### Body
 
 The metadata should be written directly to the request body.
 
-### Response
+#### Response
 
 ```
 {

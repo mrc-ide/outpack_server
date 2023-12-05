@@ -1,6 +1,6 @@
+use anyhow::bail;
 use std::fs;
-use std::io::Error;
-use std::path::Path; // still using io errors here due to config
+use std::path::Path;
 
 use crate::config;
 
@@ -9,17 +9,14 @@ pub fn outpack_init(
     path_archive: Option<String>,
     use_file_store: bool,
     require_complete_tree: bool,
-) -> Result<(), Error> {
+) -> anyhow::Result<()> {
     let path_outpack = Path::new(path).join(".outpack");
     let cfg = config::Config::new(path_archive, use_file_store, require_complete_tree)?;
 
     if path_outpack.exists() {
         let prev = config::read_config(path)?;
         if cfg.core != prev.core {
-            return Err(Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "Trying to change config on reinitialisation",
-            ));
+            bail!("Trying to change config on reinitialisation");
         }
     } else {
         fs::create_dir_all(&path_outpack)?;
