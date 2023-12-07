@@ -65,11 +65,7 @@ pub fn parse_body(pairs: Pairs<Rule>) -> Result<QueryNode, ParseError> {
                 Rule::or => BooleanOperator::Or,
                 rule => unreachable!("Parse expected infix operation, found {:?}", rule),
             };
-            Ok(QueryNode::BooleanExpr(
-                op,
-                Box::new(lhs?),
-                Box::new(rhs?),
-            ))
+            Ok(QueryNode::BooleanExpr(op, Box::new(lhs?), Box::new(rhs?)))
         })
         .parse(pairs)
 }
