@@ -8,8 +8,16 @@ name: test
 
 jobs:
   build_and_test:
-    name: Rust project
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - {os: ubuntu-latest}
+          - {os: macos-latest}
+          - {os: windows-latest}
+
+    name: ${{matrix.config.os }}
+    runs-on: ${{ matrix.config.os }}
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
