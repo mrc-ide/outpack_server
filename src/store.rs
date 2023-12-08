@@ -33,7 +33,7 @@ pub fn get_missing_files(root: &str, wanted: &[String]) -> io::Result<Vec<String
 
 pub async fn put_file(root: &str, mut file: TempFile<'_>, hash: &str) -> io::Result<()> {
     let temp_dir = tempdir_in(root)?;
-    let temp_path = temp_dir.path().join(hash);
+    let temp_path = temp_dir.path().join("data");
     file.copy_to(&temp_path).await?;
     hash::validate_hash_file(&temp_path, hash).map_err(hash::hash_error_to_io_error)?;
     let path = file_path(root, hash)?;
@@ -56,8 +56,13 @@ mod tests {
         let hash = "sha256:e9aa9f2212ab";
         let res = file_path("root", hash).unwrap();
         assert_eq!(
-            res.to_str().unwrap(),
-            "root/.outpack/files/sha256/e9/aa9f2212ab"
+            res,
+            Path::new("root")
+                .join(".outpack")
+                .join("files")
+                .join("sha256")
+                .join("e9")
+                .join("aa9f2212ab")
         );
     }
 
@@ -74,12 +79,9 @@ mod tests {
         let root = get_temp_outpack_root();
         let data = "Testing 123.";
         let mut temp_file = TempFile::Buffered { content: data };
+        temp_file.persist_to(root.join("input.txt")).await.unwrap();
         let hash = hash_data(data.as_bytes(), HashAlgorithm::Sha256);
         let hash_str = hash.to_string();
-        temp_file
-            .persist_to(root.join(hash.to_string()))
-            .await
-            .unwrap();
 
         let root_str = root.to_str().unwrap();
         let res = put_file(root_str, temp_file, &hash.to_string()).await;
@@ -89,8 +91,9 @@ mod tests {
         assert_eq!(fs::read_to_string(expected).unwrap(), data);
 
         let mut temp_file = TempFile::Buffered { content: data };
-        temp_file.persist_to(root.join(&hash_str)).await.unwrap();
+        temp_file.persist_to(root.join("input.txt")).await.unwrap();
         let res = put_file(root_str, temp_file, &hash_str).await;
+        println!("{:?}", res);
         assert!(res.is_ok());
     }
 
@@ -99,7 +102,7 @@ mod tests {
         let root = get_temp_outpack_root();
         let data = "Testing 123.";
         let mut temp_file = TempFile::Buffered { content: data };
-        temp_file.persist_to(root.join("badhash")).await.unwrap();
+        temp_file.persist_to(root.join("input.txt")).await.unwrap();
         let root_path = root.to_str().unwrap();
         let res = put_file(root_path, temp_file, "badhash").await;
         assert_eq!(
@@ -113,7 +116,7 @@ mod tests {
         let root = get_temp_outpack_root();
         let data = "Testing 123.";
         let mut temp_file = TempFile::Buffered { content: data };
-        temp_file.persist_to(root.join("badhash")).await.unwrap();
+        temp_file.persist_to(root.join("input.txt")).await.unwrap();
         let root_path = root.to_str().unwrap();
         let res = put_file(root_path, temp_file, "md5:abcde").await;
         assert_eq!(
