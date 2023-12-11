@@ -1,0 +1,19 @@
+[project]
+name = "outpack_query_parser"
+
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[tool.maturin]
+features = ["python"]
+
+[tool.hatch.version]
+path = "Cargo.toml"
+
+[tool.hatch.envs.default]
+dependencies = [ "pytest" ]
+
+[tool.hatch.envs.default.scripts]
+test = "pytest {args:tests/python}"
+develop = "maturin develop"

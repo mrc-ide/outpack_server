@@ -1,5 +1,7 @@
 /target
+/dist
 .idea
 montagu-reports
 tests/example/.outpack/index
 example.tar
+__pycache__

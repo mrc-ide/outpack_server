@@ -1,19 +1,19 @@
 use pest::iterators::{Pair, Pairs};
 use pest::pratt_parser::PrattParser;
 use pest::Parser;
+use pest_derive::Parser;
 
 use crate::query::query_types::*;
-use crate::query::QueryError;
+use crate::query::ParseError;
 
 #[derive(Parser)]
 #[grammar = "query/query.pest"]
 struct QueryParser;
 
-pub fn parse_query(query: &str) -> Result<QueryNode, QueryError> {
-    match QueryParser::parse(Rule::query, query) {
-        Ok(pairs) => parse_toplevel(get_first_inner_pair(pairs.peek().unwrap())),
-        Err(e) => Err(QueryError::ParseError(Box::new(e))),
-    }
+pub fn parse_query(query: &str) -> Result<QueryNode, ParseError> {
+    let pairs = QueryParser::parse(Rule::query, query)?;
+    let node = parse_toplevel(get_first_inner_pair(pairs.peek().unwrap()))?;
+    Ok(node)
 }
 
 /// Parse the top-level syntax node.
@@ -24,7 +24,7 @@ pub fn parse_query(query: &str) -> Result<QueryNode, QueryError> {
 ///
 /// This function handles these, and delegates any long-form query to the pratt
 /// parser below.
-fn parse_toplevel(toplevel: Pair<Rule>) -> Result<QueryNode, QueryError> {
+fn parse_toplevel(toplevel: Pair<Rule>) -> Result<QueryNode, ParseError> {
     match toplevel.as_rule() {
         Rule::body => parse_body(toplevel.into_inner()),
         Rule::shortformLatest => Ok(QueryNode::Latest(None)),
@@ -32,7 +32,7 @@ fn parse_toplevel(toplevel: Pair<Rule>) -> Result<QueryNode, QueryError> {
             let id = get_string_inner(get_first_inner_pair(toplevel));
             let lhs = TestValue::Lookup(Lookup::Packet(PacketLookup::Id));
             let rhs = TestValue::Literal(Literal::String(id));
-            Ok(QueryNode::Test(Test::Equal, lhs, rhs))
+            Ok(QueryNode::Test(TestOperator::Equal, lhs, rhs))
         }
         _ => unreachable!(),
     }
@@ -52,7 +52,7 @@ lazy_static::lazy_static! {
     };
 }
 
-pub fn parse_body(pairs: Pairs<Rule>) -> Result<QueryNode, QueryError> {
+pub fn parse_body(pairs: Pairs<Rule>) -> Result<QueryNode, ParseError> {
     PRATT_PARSER
         .map_primary(parse_expr)
         .map_prefix(|op, rhs| match op.as_rule() {
@@ -61,25 +61,21 @@ pub fn parse_body(pairs: Pairs<Rule>) -> Result<QueryNode, QueryError> {
         })
         .map_infix(|lhs, op, rhs| {
             let op = match op.as_rule() {
-                Rule::and => Operator::And,
-                Rule::or => Operator::Or,
+                Rule::and => BooleanOperator::And,
+                Rule::or => BooleanOperator::Or,
                 rule => unreachable!("Parse expected infix operation, found {:?}", rule),
             };
-            Ok(QueryNode::BooleanOperator(
-                op,
-                Box::new(lhs?),
-                Box::new(rhs?),
-            ))
+            Ok(QueryNode::BooleanExpr(op, Box::new(lhs?), Box::new(rhs?)))
         })
         .parse(pairs)
 }
 
-fn parse_expr(query: Pair<Rule>) -> Result<QueryNode, QueryError> {
+fn parse_expr(query: Pair<Rule>) -> Result<QueryNode, ParseError> {
     match query.as_rule() {
         Rule::string => {
             let x = get_string_inner(query);
             Ok(QueryNode::Test(
-                Test::Equal,
+                TestOperator::Equal,
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Id)),
                 TestValue::Literal(Literal::String(x)),
             ))
@@ -103,17 +99,17 @@ fn parse_expr(query: Pair<Rule>) -> Result<QueryNode, QueryError> {
             let lhs = parse_test_value(lhs);
             let rhs = parse_test_value(rhs);
 
-            let test_type: Result<Test, QueryError> = match infix_function.as_str() {
-                "==" => Ok(Test::Equal),
-                "!=" => Ok(Test::NotEqual),
-                "<" => Ok(Test::LessThan),
-                "<=" => Ok(Test::LessThanOrEqual),
-                ">" => Ok(Test::GreaterThan),
-                ">=" => Ok(Test::GreaterThanOrEqual),
-                _ => Err(unknown_infix_error(infix_function)),
+            let test_type = match infix_function.as_str() {
+                "==" => TestOperator::Equal,
+                "!=" => TestOperator::NotEqual,
+                "<" => TestOperator::LessThan,
+                "<=" => TestOperator::LessThanOrEqual,
+                ">" => TestOperator::GreaterThan,
+                ">=" => TestOperator::GreaterThanOrEqual,
+                _ => return Err(unknown_infix_error(infix_function)),
             };
 
-            Ok(QueryNode::Test(test_type?, lhs, rhs))
+            Ok(QueryNode::Test(test_type, lhs, rhs))
         }
         Rule::singleVariableFunc => {
             let mut func = query.into_inner();
@@ -171,14 +167,14 @@ fn parse_literal(literal: Pair<Rule>) -> Literal {
     }
 }
 
-fn unknown_infix_error(operator: Pair<Rule>) -> QueryError {
-    let err = pest::error::Error::new_from_span(
+fn unknown_infix_error(operator: Pair<Rule>) -> ParseError {
+    pest::error::Error::new_from_span(
         pest::error::ErrorVariant::CustomError {
             message: format!("Encountered unknown infix operator: {}", operator.as_str()),
         },
         operator.as_span(),
-    );
-    QueryError::ParseError(Box::new(err))
+    )
+    .into()
 }
 
 fn get_string_inner(rule: Pair<Rule>) -> &str {
@@ -199,13 +195,13 @@ mod tests {
         ( $res:expr, $node:pat ) => {
             assert!(matches!($res, $node), "Nodes don't match,\nexpected: {:?}\ngot: {:?}", stringify!($node), $res)
         };
-        ( $res:expr, QueryNode::BooleanOperator, $op:path, ($($nested1:tt)*), ($($nested2:tt)*) ) => {
+        ( $res:expr, QueryNode::BooleanExpr, $op:path, ($($nested1:tt)*), ($($nested2:tt)*) ) => {
             match $res {
-                QueryNode::BooleanOperator($op, value1, value2) => {
+                QueryNode::BooleanExpr($op, value1, value2) => {
                     assert_node!(*value1, $($nested1)*);
                     assert_node!(*value2, $($nested2)*);
                 }
-                _ => panic!("Invalid type,\nexpected: QueryNode::BooleanOperator({:?}, _, _)\ngot: {:?}", stringify!($op), $res)
+                _ => panic!("Invalid type,\nexpected: QueryNode::BooleanExpr({:?}, _, _)\ngot: {:?}", stringify!($op), $res)
             }
         };
         ( $res:expr, QueryNode::Latest, ($($nested:tt)*) ) => {
@@ -235,7 +231,7 @@ mod tests {
         assert_node!(
             res,
             QueryNode::Test(
-                Test::Equal,
+                TestOperator::Equal,
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Id)),
                 TestValue::Literal(Literal::String("123"))
             )
@@ -245,15 +241,19 @@ mod tests {
         assert_node!(
             res,
             QueryNode::Test(
-                Test::Equal,
+                TestOperator::Equal,
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Id)),
                 TestValue::Literal(Literal::String("123"))
             )
         );
 
         // Shortforms aren't allowed nested in complex expressions.
-        let e = parse_query("latest('123')").unwrap_err();
-        assert_node!(e, QueryError::ParseError(_));
+        assert!(parse_query("latest('123')").is_err());
+
+        // Only string literals are allowed as shortforms. No integer
+        // or booleans.
+        assert!(parse_query("123").is_err());
+        assert!(parse_query("false").is_err());
     }
 
     #[test]
@@ -264,7 +264,7 @@ mod tests {
         assert_node!(
             res,
             QueryNode::Test(
-                Test::Equal,
+                TestOperator::Equal,
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Id)),
                 TestValue::Literal(Literal::String("123"))
             )
@@ -273,7 +273,7 @@ mod tests {
         assert_node!(
             res,
             QueryNode::Test(
-                Test::Equal,
+                TestOperator::Equal,
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Id)),
                 TestValue::Literal(Literal::String("123"))
             )
@@ -282,7 +282,7 @@ mod tests {
         assert_node!(
             res,
             QueryNode::Test(
-                Test::Equal,
+                TestOperator::Equal,
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Id)),
                 TestValue::Literal(Literal::String("12 3"))
             )
@@ -291,7 +291,7 @@ mod tests {
         assert_node!(
             res,
             QueryNode::Test(
-                Test::Equal,
+                TestOperator::Equal,
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Name)),
                 TestValue::Literal(Literal::String("123"))
             )
@@ -300,7 +300,7 @@ mod tests {
         assert_node!(
             res,
             QueryNode::Test(
-                Test::Equal,
+                TestOperator::Equal,
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Name)),
                 TestValue::Literal(Literal::String(r#"1"23"#))
             )
@@ -310,7 +310,7 @@ mod tests {
             res,
             QueryNode::Latest,
             (QueryNode::Test(
-                Test::Equal,
+                TestOperator::Equal,
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Id)),
                 TestValue::Literal(Literal::String("123"))
             ))
@@ -320,15 +320,11 @@ mod tests {
             res,
             QueryNode::Latest,
             (QueryNode::Test(
-                Test::Equal,
+                TestOperator::Equal,
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Name)),
                 TestValue::Literal(Literal::String("example"))
             ))
         );
-        let e = parse_query(r#"latest("123")"#).unwrap_err();
-        assert_node!(e, QueryError::ParseError(_));
-        let e = parse_query("123").unwrap_err();
-        assert_node!(e, QueryError::ParseError(_));
     }
 
     #[test]
@@ -337,7 +333,7 @@ mod tests {
         assert_node!(
             res,
             QueryNode::Test(
-                Test::Equal,
+                TestOperator::Equal,
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Parameter("x"))),
                 TestValue::Literal(Literal::String("foo"))
             )
@@ -346,7 +342,7 @@ mod tests {
         assert_node!(
             res,
             QueryNode::Test(
-                Test::Equal,
+                TestOperator::Equal,
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Parameter("x"))),
                 TestValue::Literal(Literal::String("foo"))
             )
@@ -355,7 +351,7 @@ mod tests {
         assert_node!(
             res,
             QueryNode::Test(
-                Test::Equal,
+                TestOperator::Equal,
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Parameter("longer"))),
                 TestValue::Literal(Literal::String("foo"))
             )
@@ -364,7 +360,7 @@ mod tests {
         assert_node!(
             res,
             QueryNode::Test(
-                Test::Equal,
+                TestOperator::Equal,
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Parameter("x123"))),
                 TestValue::Literal(Literal::String("foo"))
             )
@@ -373,7 +369,7 @@ mod tests {
         assert_node!(
             res,
             QueryNode::Test(
-                Test::Equal,
+                TestOperator::Equal,
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Parameter("x"))),
                 TestValue::Literal(Literal::Bool(true))
             )
@@ -382,7 +378,7 @@ mod tests {
         assert_node!(
             res,
             QueryNode::Test(
-                Test::Equal,
+                TestOperator::Equal,
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Parameter("x"))),
                 TestValue::Literal(Literal::Bool(true))
             )
@@ -391,7 +387,7 @@ mod tests {
         assert_node!(
             res,
             QueryNode::Test(
-                Test::Equal,
+                TestOperator::Equal,
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Parameter("x"))),
                 TestValue::Literal(Literal::Bool(true))
             )
@@ -400,7 +396,7 @@ mod tests {
         assert_node!(
             res,
             QueryNode::Test(
-                Test::Equal,
+                TestOperator::Equal,
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Parameter("x"))),
                 TestValue::Literal(Literal::Bool(false))
             )
@@ -409,7 +405,7 @@ mod tests {
         assert_node!(
             res,
             QueryNode::Test(
-                Test::Equal,
+                TestOperator::Equal,
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Parameter("x"))),
                 TestValue::Literal(Literal::Bool(false))
             )
@@ -418,13 +414,12 @@ mod tests {
         assert_node!(
             res,
             QueryNode::Test(
-                Test::Equal,
+                TestOperator::Equal,
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Parameter("x"))),
                 TestValue::Literal(Literal::Bool(false))
             )
         );
         let e = parse_query("parameter:x == T").unwrap_err();
-        assert_node!(e, QueryError::ParseError(_));
         assert!(e.to_string().contains("expected lookup or literal"));
 
         let res = parse_query("parameter:x == 2").unwrap();
@@ -495,7 +490,7 @@ mod tests {
         assert_node!(
             res,
             QueryNode::Test(
-                Test::Equal,
+                TestOperator::Equal,
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Id)),
                 TestValue::Literal(Literal::String("123"))
             )
@@ -504,7 +499,7 @@ mod tests {
         assert_node!(
             res,
             QueryNode::Test(
-                Test::NotEqual,
+                TestOperator::NotEqual,
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Id)),
                 TestValue::Literal(Literal::String("123"))
             )
@@ -513,7 +508,7 @@ mod tests {
         assert_node!(
             res,
             QueryNode::Test(
-                Test::LessThan,
+                TestOperator::LessThan,
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Id)),
                 TestValue::Literal(Literal::String("123"))
             )
@@ -522,7 +517,7 @@ mod tests {
         assert_node!(
             res,
             QueryNode::Test(
-                Test::LessThanOrEqual,
+                TestOperator::LessThanOrEqual,
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Id)),
                 TestValue::Literal(Literal::String("123"))
             )
@@ -531,7 +526,7 @@ mod tests {
         assert_node!(
             res,
             QueryNode::Test(
-                Test::GreaterThan,
+                TestOperator::GreaterThan,
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Id)),
                 TestValue::Literal(Literal::String("123"))
             )
@@ -540,14 +535,13 @@ mod tests {
         assert_node!(
             res,
             QueryNode::Test(
-                Test::GreaterThanOrEqual,
+                TestOperator::GreaterThanOrEqual,
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Id)),
                 TestValue::Literal(Literal::String("123"))
             )
         );
 
         let e = parse_query(r#"name =! "123""#).unwrap_err();
-        assert_node!(e, QueryError::ParseError(_));
         assert!(e
             .to_string()
             .contains("Encountered unknown infix operator: =!"));
@@ -565,7 +559,7 @@ mod tests {
         assert_node!(
             res,
             QueryNode::Test(
-                Test::Equal,
+                TestOperator::Equal,
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Id)),
                 TestValue::Literal(Literal::String("123"))
             )
@@ -576,7 +570,7 @@ mod tests {
             res,
             QueryNode::Negation,
             (QueryNode::Test(
-                Test::Equal,
+                TestOperator::Equal,
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Id)),
                 TestValue::Literal(Literal::String("123"))
             ))
@@ -589,7 +583,7 @@ mod tests {
             (
                 QueryNode::Negation,
                 (QueryNode::Test(
-                    Test::Equal,
+                    TestOperator::Equal,
                     TestValue::Lookup(Lookup::Packet(PacketLookup::Id)),
                     TestValue::Literal(Literal::String("123"))
                 ))
@@ -605,7 +599,7 @@ mod tests {
                 (
                     QueryNode::Negation,
                     (QueryNode::Test(
-                        Test::Equal,
+                        TestOperator::Equal,
                         TestValue::Lookup(Lookup::Packet(PacketLookup::Id)),
                         TestValue::Literal(Literal::String("123"))
                     ))
@@ -619,15 +613,15 @@ mod tests {
         let res = parse_query(r#"id == "123" || id == "345""#).unwrap();
         assert_node!(
             res,
-            QueryNode::BooleanOperator,
-            Operator::Or,
+            QueryNode::BooleanExpr,
+            BooleanOperator::Or,
             (QueryNode::Test(
-                Test::Equal,
+                TestOperator::Equal,
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Id)),
                 TestValue::Literal(Literal::String("123"))
             )),
             (QueryNode::Test(
-                Test::Equal,
+                TestOperator::Equal,
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Id)),
                 TestValue::Literal(Literal::String("345"))
             ))
@@ -636,15 +630,15 @@ mod tests {
         let res = parse_query(r#"id == "123" && id == "345""#).unwrap();
         assert_node!(
             res,
-            QueryNode::BooleanOperator,
-            Operator::And,
+            QueryNode::BooleanExpr,
+            BooleanOperator::And,
             (QueryNode::Test(
-                Test::Equal,
+                TestOperator::Equal,
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Id)),
                 TestValue::Literal(Literal::String("123"))
             )),
             (QueryNode::Test(
-                Test::Equal,
+                TestOperator::Equal,
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Id)),
                 TestValue::Literal(Literal::String("345"))
             ))
@@ -653,24 +647,24 @@ mod tests {
         let res = parse_query(r#"id == "123" && id == "345" || id == "this""#).unwrap();
         assert_node!(
             res,
-            QueryNode::BooleanOperator,
-            Operator::Or,
+            QueryNode::BooleanExpr,
+            BooleanOperator::Or,
             (
-                QueryNode::BooleanOperator,
-                Operator::And,
+                QueryNode::BooleanExpr,
+                BooleanOperator::And,
                 (QueryNode::Test(
-                    Test::Equal,
+                    TestOperator::Equal,
                     TestValue::Lookup(Lookup::Packet(PacketLookup::Id)),
                     TestValue::Literal(Literal::String("123"))
                 )),
                 (QueryNode::Test(
-                    Test::Equal,
+                    TestOperator::Equal,
                     TestValue::Lookup(Lookup::Packet(PacketLookup::Id)),
                     TestValue::Literal(Literal::String("345"))
                 ))
             ),
             (QueryNode::Test(
-                Test::Equal,
+                TestOperator::Equal,
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Id)),
                 TestValue::Literal(Literal::String("this"))
             ))
@@ -679,23 +673,23 @@ mod tests {
         let res = parse_query(r#"id == "this" || id == "123" && id == "345""#).unwrap();
         assert_node!(
             res,
-            QueryNode::BooleanOperator,
-            Operator::Or,
+            QueryNode::BooleanExpr,
+            BooleanOperator::Or,
             (QueryNode::Test(
-                Test::Equal,
+                TestOperator::Equal,
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Id)),
                 TestValue::Literal(Literal::String("this"))
             )),
             (
-                QueryNode::BooleanOperator,
-                Operator::And,
+                QueryNode::BooleanExpr,
+                BooleanOperator::And,
                 (QueryNode::Test(
-                    Test::Equal,
+                    TestOperator::Equal,
                     TestValue::Lookup(Lookup::Packet(PacketLookup::Id)),
                     TestValue::Literal(Literal::String("123"))
                 )),
                 (QueryNode::Test(
-                    Test::Equal,
+                    TestOperator::Equal,
                     TestValue::Lookup(Lookup::Packet(PacketLookup::Id)),
                     TestValue::Literal(Literal::String("345"))
                 ))
@@ -705,27 +699,27 @@ mod tests {
         let res = parse_query(r#"(id == "this" || id == "123") && id == "345""#).unwrap();
         assert_node!(
             res,
-            QueryNode::BooleanOperator,
-            Operator::And,
+            QueryNode::BooleanExpr,
+            BooleanOperator::And,
             (
                 QueryNode::Brackets,
                 (
-                    QueryNode::BooleanOperator,
-                    Operator::Or,
+                    QueryNode::BooleanExpr,
+                    BooleanOperator::Or,
                     (QueryNode::Test(
-                        Test::Equal,
+                        TestOperator::Equal,
                         TestValue::Lookup(Lookup::Packet(PacketLookup::Id)),
                         TestValue::Literal(Literal::String("this"))
                     )),
                     (QueryNode::Test(
-                        Test::Equal,
+                        TestOperator::Equal,
                         TestValue::Lookup(Lookup::Packet(PacketLookup::Id)),
                         TestValue::Literal(Literal::String("123"))
                     ))
                 )
             ),
             (QueryNode::Test(
-                Test::Equal,
+                TestOperator::Equal,
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Id)),
                 TestValue::Literal(Literal::String("345"))
             ))
@@ -739,15 +733,15 @@ mod tests {
             res,
             QueryNode::Latest,
             (
-                QueryNode::BooleanOperator,
-                Operator::Or,
+                QueryNode::BooleanExpr,
+                BooleanOperator::Or,
                 (QueryNode::Test(
-                    Test::Equal,
+                    TestOperator::Equal,
                     TestValue::Lookup(Lookup::Packet(PacketLookup::Id)),
                     TestValue::Literal(Literal::String("123"))
                 )),
                 (QueryNode::Test(
-                    Test::Equal,
+                    TestOperator::Equal,
                     TestValue::Lookup(Lookup::Packet(PacketLookup::Name)),
                     TestValue::Literal(Literal::String("this"))
                 ))
@@ -762,15 +756,13 @@ mod tests {
             res,
             QueryNode::Single,
             (QueryNode::Test(
-                Test::Equal,
+                TestOperator::Equal,
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Parameter("x"))),
                 TestValue::Literal(Literal::String("foo"))
             ))
         );
 
         let e = parse_query(r#"single()"#).unwrap_err();
-        assert_node!(e, QueryError::ParseError(_));
-        assert!(e.to_string().contains("Failed to parse query"));
         assert!(e.to_string().contains("expected body"));
     }
 
@@ -780,7 +772,7 @@ mod tests {
         assert_node!(
             res,
             QueryNode::Test(
-                Test::Equal,
+                TestOperator::Equal,
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Parameter("x"))),
                 TestValue::Literal(Literal::String("foo"))
             )
@@ -789,7 +781,7 @@ mod tests {
         assert_node!(
             res,
             QueryNode::Test(
-                Test::Equal,
+                TestOperator::Equal,
                 TestValue::Literal(Literal::String("foo")),
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Parameter("x")))
             )
@@ -799,7 +791,7 @@ mod tests {
         assert_node!(
             res,
             QueryNode::Test(
-                Test::LessThan,
+                TestOperator::LessThan,
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Parameter("x"))),
                 TestValue::Literal(Literal::String("foo"))
             )
@@ -808,7 +800,7 @@ mod tests {
         assert_node!(
             res,
             QueryNode::Test(
-                Test::LessThan,
+                TestOperator::LessThan,
                 TestValue::Literal(Literal::String("foo")),
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Parameter("x")))
             )
@@ -818,7 +810,7 @@ mod tests {
         assert_node!(
             res,
             QueryNode::Test(
-                Test::Equal,
+                TestOperator::Equal,
                 TestValue::Literal(Literal::String("foo")),
                 TestValue::Literal(Literal::String("foo"))
             )
@@ -828,7 +820,7 @@ mod tests {
         assert_node!(
             res,
             QueryNode::Test(
-                Test::Equal,
+                TestOperator::Equal,
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Parameter("x"))),
                 TestValue::Lookup(Lookup::Packet(PacketLookup::Parameter("x")))
             )

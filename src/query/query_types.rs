@@ -37,7 +37,7 @@ impl<'a> PartialOrd for Literal<'a> {
 }
 
 #[derive(Debug)]
-pub enum Test {
+pub enum TestOperator {
     Equal,
     NotEqual,
     LessThan,
@@ -47,7 +47,7 @@ pub enum Test {
 }
 
 #[derive(Debug)]
-pub enum Operator {
+pub enum BooleanOperator {
     And,
     Or,
 }
@@ -56,10 +56,10 @@ pub enum Operator {
 pub enum QueryNode<'a> {
     Latest(Option<Box<QueryNode<'a>>>),
     Single(Box<QueryNode<'a>>),
-    Test(Test, TestValue<'a>, TestValue<'a>),
     Negation(Box<QueryNode<'a>>),
     Brackets(Box<QueryNode<'a>>),
-    BooleanOperator(Operator, Box<QueryNode<'a>>, Box<QueryNode<'a>>),
+    Test(TestOperator, TestValue<'a>, TestValue<'a>),
+    BooleanExpr(BooleanOperator, Box<QueryNode<'a>>, Box<QueryNode<'a>>),
 }
 
 #[cfg(test)]

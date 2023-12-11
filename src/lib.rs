@@ -12,6 +12,3 @@ mod responses;
 mod store;
 mod test_utils;
 mod utils;
-
-#[macro_use]
-extern crate pest_derive;
