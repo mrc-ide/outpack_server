@@ -182,22 +182,13 @@ fn can_list_metadata() {
         "YF"
     );
     assert_eq!(
-        entries[0]
-            .get("custom")
-            .unwrap()
-            .as_object()
-            .unwrap()
-            .get("orderly")
-            .unwrap()
-            .as_object()
-            .unwrap()
-            .get("displayname")
-            .unwrap()
-            .as_str()
-            .unwrap(),
-        "Modified Update"
+        entries[0].get("time").unwrap().get("start").unwrap(),
+        1503074938.2232
     );
-
+    assert_eq!(
+        entries[0].get("time").unwrap().get("end").unwrap(),
+        1503074938.2232
+    );
     assert_eq!(
         entries[1].get("id").unwrap().as_str().unwrap(),
         "20170818-164847-7574883b"

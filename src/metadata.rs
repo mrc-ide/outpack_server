@@ -17,8 +17,8 @@ use super::utils;
 pub struct PackitPacket {
     pub id: String,
     pub name: String,
-    pub custom: Option<serde_json::Value>,
     pub parameters: Option<HashMap<String, serde_json::Value>>,
+    pub time: PacketTime,
 }
 
 impl PackitPacket {
@@ -26,8 +26,8 @@ impl PackitPacket {
         PackitPacket {
             id: packet.id.to_string(),
             name: packet.name.to_string(),
-            custom: packet.custom.clone(),
             parameters: packet.parameters.clone(),
+            time: packet.time.clone(),
         }
     }
 }
@@ -40,6 +40,7 @@ pub struct Packet {
     pub parameters: Option<HashMap<String, serde_json::Value>>,
     pub files: Vec<PacketFile>,
     pub depends: Vec<PacketDependency>,
+    pub time: PacketTime,
 }
 
 impl PartialEq for Packet {
@@ -67,6 +68,12 @@ pub struct PacketFile {
 pub struct PacketDependency {
     packet: String,
     files: Vec<DependencyFile>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct PacketTime {
+    start: f64,
+    end: f64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
