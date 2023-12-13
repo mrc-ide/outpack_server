@@ -12,7 +12,7 @@ features = ["python"]
 path = "Cargo.toml"
 
 [tool.hatch.envs.default]
-dependencies = [ "pytest" ]
+dependencies = [ "maturin", "pytest" ]
 
 [tool.hatch.envs.default.scripts]
 test = "pytest {args:tests/python}"
