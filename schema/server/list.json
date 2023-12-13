@@ -17,10 +17,16 @@
                 "description": "Task parameters, used when running and for querying",
                 "type": ["null", "object"]
             },
-
-            "custom": {
-                "description": "Optional custom metadata, grouped under application keys",
-                "type": ["null", "object"]
+            "time": {
+                "description": "Information about the running time",
+                "start": {
+                    "description": "Time that the report was started, in seconds since 1970-01-01",
+                    "type": "number"
+                },
+                "end": {
+                    "description": "Time that the report was completed, in seconds since 1970-01-01",
+                    "type": "number"
+                }
             }
         },
         "required": ["id", "name"],
