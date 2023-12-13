@@ -294,7 +294,7 @@ The metadata should be written directly to the request body.
 
 ## Python bindings
 
-This crate provides Python bindings for its query parser. The bindings can be installed using `pip install .`.
+This crate provides Python bindings for its query parser. The bindings can be installed directly from PyPI using `pip install outpack_query_parser`.
 
 ### Local development
 
@@ -303,6 +303,19 @@ hatch run python  # Start a Python interpreter with the bindings installed
 hatch run test    # Run the bindings test-suite
 hatch run develop # Rebuild the bindings. Necessary whenever changes to Rust code is made.
 ```
+
+## Releasing
+
+- Increment the version field in `Cargo.toml`.
+- Run `cargo fetch` to update the version field of `Cargo.lock`.
+- Create a new pull request with these changes.
+- Get the PR approved and merged to main.
+- Create a [GitHub release](https://github.com/mrc-ide/outpack_server/releases/new):
+  - Set the tag name as `vX.Y.Z`, matching the version used in `Cargo.toml`.
+  - Write some release notes (possibly using the `Generate release notes` button).
+  - Publish the release!
+- Sit back and relax while the release gets built and published.
+- Check that the new version is available on [PyPI](https://pypi.org/project/outpack-query-parser/#history).
 
 ## License
 
