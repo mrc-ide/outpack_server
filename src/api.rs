@@ -84,21 +84,21 @@ fn get_metadata(
 }
 
 #[rocket::get("/metadata/<id>/json")]
-fn get_metadata_by_id(root: &State<String>, id: String) -> OutpackResult<serde_json::Value> {
-    metadata::get_metadata_by_id(root, &id)
+fn get_metadata_by_id(root: &State<String>, id: &str) -> OutpackResult<serde_json::Value> {
+    metadata::get_metadata_by_id(root, id)
         .map_err(OutpackError::from)
         .map(OutpackSuccess::from)
 }
 
 #[rocket::get("/metadata/<id>/text")]
-fn get_metadata_raw(root: &State<String>, id: String) -> Result<String, OutpackError> {
-    metadata::get_metadata_text(root, &id).map_err(OutpackError::from)
+fn get_metadata_raw(root: &State<String>, id: &str) -> Result<String, OutpackError> {
+    metadata::get_metadata_text(root, id).map_err(OutpackError::from)
 }
 
 #[rocket::get("/file/<hash>")]
-async fn get_file(root: &State<String>, hash: String) -> Result<OutpackFile, OutpackError> {
-    let path = store::file_path(root, &hash);
-    OutpackFile::open(hash, path?)
+async fn get_file(root: &State<String>, hash: &str) -> Result<OutpackFile, OutpackError> {
+    let path = store::file_path(root, hash);
+    OutpackFile::open(hash.to_owned(), path?)
         .await
         .map_err(OutpackError::from)
 }
@@ -135,10 +135,10 @@ async fn get_missing_files(
 #[rocket::post("/file/<hash>", format = "binary", data = "<file>")]
 async fn add_file(
     root: &State<String>,
-    hash: String,
+    hash: &str,
     file: TempFile<'_>,
 ) -> Result<OutpackSuccess<()>, OutpackError> {
-    store::put_file(root, file, &hash)
+    store::put_file(root, file, hash)
         .await
         .map_err(OutpackError::from)
         .map(OutpackSuccess::from)
@@ -147,11 +147,11 @@ async fn add_file(
 #[rocket::post("/packet/<hash>", format = "plain", data = "<packet>")]
 async fn add_packet(
     root: &State<String>,
-    hash: String,
-    packet: String,
+    hash: &str,
+    packet: &str,
 ) -> Result<OutpackSuccess<()>, OutpackError> {
     let hash = hash.parse::<hash::Hash>().map_err(OutpackError::from)?;
-    metadata::add_packet(root, &packet, &hash)
+    metadata::add_packet(root, packet, &hash)
         .map_err(OutpackError::from)
         .map(OutpackSuccess::from)
 }
