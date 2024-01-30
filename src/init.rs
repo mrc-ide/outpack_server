@@ -5,12 +5,12 @@ use std::path::Path;
 use crate::config;
 
 pub fn outpack_init(
-    path: &str,
+    path: &Path,
     path_archive: Option<String>,
     use_file_store: bool,
     require_complete_tree: bool,
 ) -> anyhow::Result<()> {
-    let path_outpack = Path::new(path).join(".outpack");
+    let path_outpack = path.join(".outpack");
     let cfg = config::Config::new(path_archive, use_file_store, require_complete_tree)?;
 
     if path_outpack.exists() {
@@ -27,7 +27,7 @@ pub fn outpack_init(
             fs::create_dir_all(path_outpack.join("files"))?;
         }
         if let Some(path_archive) = cfg.core.path_archive {
-            fs::create_dir_all(Path::new(path).join(path_archive))?;
+            fs::create_dir_all(path.join(path_archive))?;
         }
     }
     Ok(())
@@ -42,11 +42,10 @@ mod tests {
     fn can_create_empty_config() {
         let tmp = tempfile::TempDir::new().unwrap();
         let path = tmp.path();
-        let path_str = path.to_str().unwrap();
-        let res = outpack_init(path_str, None, true, true);
+        let res = outpack_init(path, None, true, true);
         assert!(res.is_ok());
         assert_eq!(
-            config::read_config(path_str).unwrap(),
+            config::read_config(path).unwrap(),
             config::Config::new(None, true, true).unwrap()
         );
     }
@@ -55,18 +54,17 @@ mod tests {
     fn can_reinit_an_existing_repo() {
         let tmp = tempfile::TempDir::new().unwrap();
         let path = tmp.path();
-        let path_str = path.to_str().unwrap();
-        let res = outpack_init(path_str, Some(String::from("archive")), false, false);
+        let res = outpack_init(path, Some(String::from("archive")), false, false);
         assert!(res.is_ok());
         assert_eq!(
-            config::read_config(path_str).unwrap(),
+            config::read_config(path).unwrap(),
             config::Config::new(Some(String::from("archive")), false, false).unwrap()
         );
 
-        let res = outpack_init(path_str, Some(String::from("archive")), false, false);
+        let res = outpack_init(path, Some(String::from("archive")), false, false);
         assert!(res.is_ok());
         assert_eq!(
-            config::read_config(path_str).unwrap(),
+            config::read_config(path).unwrap(),
             config::Config::new(Some(String::from("archive")), false, false).unwrap()
         );
     }
@@ -75,9 +73,8 @@ mod tests {
     fn error_if_config_has_changed() {
         let tmp = tempfile::TempDir::new().unwrap();
         let path = tmp.path();
-        let path_str = path.to_str().unwrap();
-        outpack_init(path_str, Some(String::from("archive")), false, false).unwrap();
-        let res = outpack_init(path_str, None, true, true);
+        outpack_init(path, Some(String::from("archive")), false, false).unwrap();
+        let res = outpack_init(path, None, true, true);
         assert!(res.is_err());
         assert_eq!(
             res.unwrap_err().to_string(),

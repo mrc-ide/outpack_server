@@ -21,9 +21,12 @@ pub fn format_query_result(
 mod tests {
     use super::*;
 
+    use std::path::Path;
+
     #[test]
     fn query_result_can_be_formatted() {
-        let packets = crate::metadata::get_metadata_from_date("tests/example", None).unwrap();
+        let packets =
+            crate::metadata::get_metadata_from_date(Path::new("tests/example"), None).unwrap();
         let packet_refs: Vec<&Packet> = packets.iter().collect();
         let one_packet = vec![packet_refs[0]];
 

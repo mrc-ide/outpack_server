@@ -5,7 +5,7 @@ use rocket::serde::{Deserialize, Serialize};
 use rocket::State;
 use rocket::{catch, catchers, routes, Build, Request, Rocket};
 use std::io::ErrorKind;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::config;
 use crate::hash;
@@ -59,7 +59,7 @@ fn bad_request(_req: &Request) -> Json<FailResponse> {
 }
 
 #[rocket::get("/")]
-fn index(_root: &State<String>) -> OutpackResult<ApiRoot> {
+fn index() -> OutpackResult<ApiRoot> {
     Ok(ApiRoot {
         schema_version: String::from("0.1.1"),
     }
@@ -67,7 +67,7 @@ fn index(_root: &State<String>) -> OutpackResult<ApiRoot> {
 }
 
 #[rocket::get("/metadata/list")]
-fn list_location_metadata(root: &State<String>) -> OutpackResult<Vec<location::LocationEntry>> {
+fn list_location_metadata(root: &State<PathBuf>) -> OutpackResult<Vec<location::LocationEntry>> {
     location::read_locations(root)
         .map_err(OutpackError::from)
         .map(OutpackSuccess::from)
@@ -75,7 +75,7 @@ fn list_location_metadata(root: &State<String>) -> OutpackResult<Vec<location::L
 
 #[rocket::get("/packit/metadata?<known_since>")]
 fn get_metadata(
-    root: &State<String>,
+    root: &State<PathBuf>,
     known_since: Option<f64>,
 ) -> OutpackResult<Vec<metadata::PackitPacket>> {
     metadata::get_packit_metadata_from_date(root, known_since)
@@ -84,19 +84,19 @@ fn get_metadata(
 }
 
 #[rocket::get("/metadata/<id>/json")]
-fn get_metadata_by_id(root: &State<String>, id: &str) -> OutpackResult<serde_json::Value> {
+fn get_metadata_by_id(root: &State<PathBuf>, id: &str) -> OutpackResult<serde_json::Value> {
     metadata::get_metadata_by_id(root, id)
         .map_err(OutpackError::from)
         .map(OutpackSuccess::from)
 }
 
 #[rocket::get("/metadata/<id>/text")]
-fn get_metadata_raw(root: &State<String>, id: &str) -> Result<String, OutpackError> {
+fn get_metadata_raw(root: &State<PathBuf>, id: &str) -> Result<String, OutpackError> {
     metadata::get_metadata_text(root, id).map_err(OutpackError::from)
 }
 
 #[rocket::get("/file/<hash>")]
-async fn get_file(root: &State<String>, hash: &str) -> Result<OutpackFile, OutpackError> {
+async fn get_file(root: &State<PathBuf>, hash: &str) -> Result<OutpackFile, OutpackError> {
     let path = store::file_path(root, hash);
     OutpackFile::open(hash.to_owned(), path?)
         .await
@@ -104,7 +104,7 @@ async fn get_file(root: &State<String>, hash: &str) -> Result<OutpackFile, Outpa
 }
 
 #[rocket::get("/checksum?<alg>")]
-async fn get_checksum(root: &State<String>, alg: Option<String>) -> OutpackResult<String> {
+async fn get_checksum(root: &State<PathBuf>, alg: Option<String>) -> OutpackResult<String> {
     metadata::get_ids_digest(root, alg)
         .map_err(OutpackError::from)
         .map(OutpackSuccess::from)
@@ -112,7 +112,7 @@ async fn get_checksum(root: &State<String>, alg: Option<String>) -> OutpackResul
 
 #[rocket::post("/packets/missing", format = "json", data = "<ids>")]
 async fn get_missing_packets(
-    root: &State<String>,
+    root: &State<PathBuf>,
     ids: Result<Json<Ids>, Error<'_>>,
 ) -> OutpackResult<Vec<String>> {
     let ids = ids?;
@@ -123,7 +123,7 @@ async fn get_missing_packets(
 
 #[rocket::post("/files/missing", format = "json", data = "<hashes>")]
 async fn get_missing_files(
-    root: &State<String>,
+    root: &State<PathBuf>,
     hashes: Result<Json<Hashes>, Error<'_>>,
 ) -> OutpackResult<Vec<String>> {
     let hashes = hashes?;
@@ -134,7 +134,7 @@ async fn get_missing_files(
 
 #[rocket::post("/file/<hash>", format = "binary", data = "<file>")]
 async fn add_file(
-    root: &State<String>,
+    root: &State<PathBuf>,
     hash: &str,
     file: TempFile<'_>,
 ) -> Result<OutpackSuccess<()>, OutpackError> {
@@ -146,7 +146,7 @@ async fn add_file(
 
 #[rocket::post("/packet/<hash>", format = "plain", data = "<packet>")]
 async fn add_packet(
-    root: &State<String>,
+    root: &State<PathBuf>,
     hash: &str,
     packet: &str,
 ) -> Result<OutpackSuccess<()>, OutpackError> {
@@ -193,23 +193,23 @@ pub fn check_config(config: &config::Config) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn preflight(root_path: &str) -> anyhow::Result<()> {
-    if !Path::new(&root_path).join(".outpack").exists() {
-        bail!("Outpack root not found at '{}'", root_path);
+pub fn preflight(root: &Path) -> anyhow::Result<()> {
+    if !root.join(".outpack").exists() {
+        bail!("Outpack root not found at '{}'", root.display());
     }
 
-    let config = config::read_config(root_path)
-        .with_context(|| format!("Failed to read outpack config from '{}'", root_path))?;
+    let config = config::read_config(root)
+        .with_context(|| format!("Failed to read outpack config from '{}'", root.display()))?;
 
     check_config(&config)?;
     Ok(())
 }
 
-fn api_build(root: &str) -> Rocket<Build> {
+fn api_build(root: &Path) -> Rocket<Build> {
     let prometheus = PrometheusMetrics::new();
     metrics::register(prometheus.registry(), root).expect("metrics registered");
     rocket::build()
-        .manage(String::from(root))
+        .manage(root.to_owned())
         .attach(prometheus.clone())
         .mount("/metrics", prometheus)
         .register("/", catchers![internal_error, not_found, bad_request])
@@ -231,7 +231,7 @@ fn api_build(root: &str) -> Rocket<Build> {
         )
 }
 
-pub fn api(root: &str) -> anyhow::Result<Rocket<Build>> {
+pub fn api(root: &Path) -> anyhow::Result<Rocket<Build>> {
     preflight(root)?;
     Ok(api_build(root))
 }

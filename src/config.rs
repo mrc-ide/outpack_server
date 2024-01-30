@@ -53,16 +53,16 @@ impl Config {
     }
 }
 
-pub fn read_config(root_path: &str) -> Result<Config, Error> {
-    let path = Path::new(root_path).join(".outpack").join("config.json");
+pub fn read_config(root: &Path) -> Result<Config, Error> {
+    let path = root.join(".outpack").join("config.json");
     let config_file = fs::File::open(path)?;
     let config: Config = serde_json::from_reader(config_file)?;
     Ok(config)
 }
 
-pub fn write_config(config: &Config, root_path: &str) -> Result<(), Error> {
+pub fn write_config(config: &Config, root: &Path) -> Result<(), Error> {
     // assume .outpack exists
-    let path_config = Path::new(root_path).join(".outpack").join("config.json");
+    let path_config = root.join(".outpack").join("config.json");
     fs::File::create(&path_config)?;
     let json = serde_json::to_string(&config)?;
     fs::write(path_config, json)?;
@@ -76,7 +76,7 @@ mod tests {
 
     #[test]
     fn can_read_config() {
-        let cfg = read_config("tests/example").unwrap();
+        let cfg = read_config(Path::new("tests/example")).unwrap();
         assert_eq!(cfg.core.hash_algorithm, HashAlgorithm::Sha256);
         assert!(cfg.core.use_file_store);
         assert!(cfg.core.require_complete_tree);
@@ -88,10 +88,9 @@ mod tests {
         let cfg = Config::new(None, true, true).unwrap();
         let tmp = tempfile::TempDir::new().unwrap();
         let path = tmp.path();
-        let path_str = path.to_str().unwrap();
         fs::create_dir_all(path.join(".outpack")).unwrap();
-        write_config(&cfg, path_str).unwrap();
-        assert_eq!(read_config(path_str).unwrap(), cfg);
+        write_config(&cfg, path).unwrap();
+        assert_eq!(read_config(path).unwrap(), cfg);
     }
 
     #[test]

@@ -8,7 +8,7 @@ use sha2::{Digest, Sha256};
 use std::fs;
 use std::fs::File;
 use std::io::Read;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tar::Archive;
 use tar::Builder;
@@ -27,13 +27,12 @@ pub fn initialize() {
     });
 }
 
-fn get_test_dir() -> String {
+fn get_test_dir() -> PathBuf {
     initialize();
     let tmp_dir = TempDir::new("outpack").expect("Temp dir created");
     let mut ar = Archive::new(File::open("example.tar").unwrap());
     ar.unpack(&tmp_dir).expect("unwrapped");
-    let root = Path::new(&tmp_dir.into_path()).join("example");
-    String::from(root.to_str().expect("Test root"))
+    tmp_dir.into_path().join("example")
 }
 
 fn get_test_rocket() -> Rocket<Build> {
@@ -56,7 +55,7 @@ fn can_get_index() {
 
 #[test]
 fn error_if_cant_get_index() {
-    let res = outpack::api::api("bad-root");
+    let res = outpack::api::api(Path::new("bad-root"));
     assert_eq!(
         res.unwrap_err().to_string(),
         String::from("Outpack root not found at 'bad-root'")
@@ -131,7 +130,7 @@ fn can_list_location_metadata() {
 
 #[test]
 fn handles_location_metadata_errors() {
-    let rocket = outpack::api::api("tests/bad-example").unwrap();
+    let rocket = outpack::api::api(Path::new("tests/bad-example")).unwrap();
     let client = Client::tracked(rocket).expect("valid rocket instance");
     let response = client.get("/metadata/list").dispatch();
     assert_eq!(response.status(), Status::InternalServerError);
@@ -228,7 +227,7 @@ fn can_list_metadata_from_date() {
 
 #[test]
 fn handles_metadata_errors() {
-    let rocket = outpack::api::api("tests/bad-example").unwrap();
+    let rocket = outpack::api::api(Path::new("tests/bad-example")).unwrap();
     let client = Client::tracked(rocket).expect("valid rocket instance");
     let response = client.get("/packit/metadata").dispatch();
     assert_eq!(response.status(), Status::InternalServerError);
