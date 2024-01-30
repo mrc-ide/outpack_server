@@ -77,10 +77,10 @@ mod tests {
     #[rocket::async_test]
     async fn put_file_is_idempotent() {
         let root = get_temp_outpack_root();
-        let data = "Testing 123.";
+        let data = b"Testing 123.";
         let mut temp_file = TempFile::Buffered { content: data };
         temp_file.persist_to(root.join("input.txt")).await.unwrap();
-        let hash = hash_data(data.as_bytes(), HashAlgorithm::Sha256);
+        let hash = hash_data(data, HashAlgorithm::Sha256);
         let hash_str = hash.to_string();
 
         let root_str = root.to_str().unwrap();
@@ -88,7 +88,7 @@ mod tests {
         let expected = file_path(root_str, &hash_str).unwrap();
         let expected = expected.to_str().unwrap();
         assert!(res.is_ok());
-        assert_eq!(fs::read_to_string(expected).unwrap(), data);
+        assert_eq!(fs::read(expected).unwrap(), data);
 
         let mut temp_file = TempFile::Buffered { content: data };
         temp_file.persist_to(root.join("input.txt")).await.unwrap();
@@ -100,7 +100,7 @@ mod tests {
     #[rocket::async_test]
     async fn put_file_validates_hash_format() {
         let root = get_temp_outpack_root();
-        let data = "Testing 123.";
+        let data = b"Testing 123.";
         let mut temp_file = TempFile::Buffered { content: data };
         temp_file.persist_to(root.join("input.txt")).await.unwrap();
         let root_path = root.to_str().unwrap();
@@ -114,7 +114,7 @@ mod tests {
     #[rocket::async_test]
     async fn put_file_validates_hash_match() {
         let root = get_temp_outpack_root();
-        let data = "Testing 123.";
+        let data = b"Testing 123.";
         let mut temp_file = TempFile::Buffered { content: data };
         temp_file.persist_to(root.join("input.txt")).await.unwrap();
         let root_path = root.to_str().unwrap();

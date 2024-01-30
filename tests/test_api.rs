@@ -591,6 +591,26 @@ fn catches_arbitrary_404() {
     validate_error(&body, Some("This route does not exist"));
 }
 
+#[test]
+fn exposes_metrics_endpoint() {
+    let rocket = get_test_rocket();
+    let client = Client::tracked(rocket).expect("valid rocket instance");
+
+    // Send at least one arbitrary request first so we don't get empty metrics.
+    client.get("/").dispatch();
+
+    let response = client.get("/metrics").dispatch();
+
+    assert_eq!(response.status(), Status::Ok);
+    assert_eq!(response.content_type(), Some(ContentType::Text));
+
+    assert!(response
+        .into_string()
+        .unwrap()
+        .lines()
+        .any(|line| line.starts_with("rocket_http_requests_total")));
+}
+
 fn validate_success(schema_group: &str, schema_name: &str, instance: &Value) {
     let compiled_schema = get_schema("server", "response-success.json");
     assert_valid(instance, &compiled_schema);

@@ -13,6 +13,7 @@ use crate::location;
 use crate::metadata;
 use crate::responses;
 use crate::store;
+use rocket_prometheus::PrometheusMetrics;
 
 use crate::outpack_file::OutpackFile;
 use responses::{FailResponse, OutpackError, OutpackSuccess};
@@ -204,8 +205,11 @@ pub fn preflight(root_path: &str) -> anyhow::Result<()> {
 }
 
 fn api_build(root: &str) -> Rocket<Build> {
+    let prometheus = PrometheusMetrics::new();
     rocket::build()
         .manage(String::from(root))
+        .attach(prometheus.clone())
+        .mount("/metrics", prometheus)
         .register("/", catchers![internal_error, not_found, bad_request])
         .mount(
             "/",
