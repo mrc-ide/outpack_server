@@ -11,6 +11,7 @@ use crate::config;
 use crate::hash;
 use crate::location;
 use crate::metadata;
+use crate::metrics;
 use crate::responses;
 use crate::store;
 use rocket_prometheus::PrometheusMetrics;
@@ -115,7 +116,7 @@ async fn get_missing_packets(
     ids: Result<Json<Ids>, Error<'_>>,
 ) -> OutpackResult<Vec<String>> {
     let ids = ids?;
-    metadata::get_missing_ids(root, &ids.ids, Some(ids.unpacked))
+    metadata::get_missing_ids(root, &ids.ids, ids.unpacked)
         .map_err(OutpackError::from)
         .map(OutpackSuccess::from)
 }
@@ -150,7 +151,7 @@ async fn add_packet(
     packet: String,
 ) -> Result<OutpackSuccess<()>, OutpackError> {
     let hash = hash.parse::<hash::Hash>().map_err(OutpackError::from)?;
-    metadata::add_metadata(root, &packet, &hash)
+    metadata::add_packet(root, &packet, &hash)
         .map_err(OutpackError::from)
         .map(OutpackSuccess::from)
 }
@@ -206,6 +207,7 @@ pub fn preflight(root_path: &str) -> anyhow::Result<()> {
 
 fn api_build(root: &str) -> Rocket<Build> {
     let prometheus = PrometheusMetrics::new();
+    metrics::register(prometheus.registry(), root).expect("metrics registered");
     rocket::build()
         .manage(String::from(root))
         .attach(prometheus.clone())

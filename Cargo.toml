@@ -27,6 +27,9 @@ anyhow = "1.0.75"
 thiserror = "1.0.50"
 pyo3 = { version = "0.20.0", features = ["extension-module", "abi3-py38"], optional = true }
 rocket_prometheus = "0.10.0"
+prometheus = "0.13.3"
+log = "0.4.20"
+tokio = "1.35.1"
 
 [dev-dependencies]
 assert_cmd = "2.0.6"
@@ -35,6 +38,8 @@ jsonschema = "0.16.1"
 url = "2.3.1"
 tempdir = "0.3.7"
 tar = "0.4.38"
+chrono = "0.4.33"
+rand = "0.8.5"
 
 [features]
 python = [ "dep:pyo3" ]

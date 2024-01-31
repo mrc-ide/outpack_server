@@ -59,21 +59,21 @@ impl std::hash::Hash for Packet {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PacketFile {
-    path: String,
-    hash: String,
-    size: usize,
+    pub path: String,
+    pub hash: String,
+    pub size: usize,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PacketDependency {
-    packet: String,
-    files: Vec<DependencyFile>,
+    pub packet: String,
+    pub files: Vec<DependencyFile>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PacketTime {
-    start: f64,
-    end: f64,
+    pub start: f64,
+    pub end: f64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -170,14 +170,14 @@ pub fn get_ids_digest(root_path: &str, alg_name: Option<String>) -> io::Result<S
         Some(name) => hash::HashAlgorithm::from_str(&name).map_err(hash::hash_error_to_io_error)?,
     };
 
-    let ids = get_ids(root_path, None)?;
+    let ids = get_ids(root_path, false)?;
     let id_string = get_sorted_id_string(ids);
     Ok(hash::hash_data(id_string.as_bytes(), hash_algorithm).to_string())
 }
 
-pub fn get_ids(root_path: &str, unpacked: Option<bool>) -> io::Result<Vec<String>> {
+pub fn get_ids(root_path: &str, unpacked: bool) -> io::Result<Vec<String>> {
     let path = Path::new(root_path).join(".outpack");
-    let path = if unpacked.is_some_and(|x| x) {
+    let path = if unpacked {
         path.join("location").join("local")
     } else {
         path.join("metadata")
@@ -204,7 +204,7 @@ pub fn get_valid_id(id: &String) -> io::Result<String> {
 pub fn get_missing_ids(
     root_path: &str,
     wanted: &[String],
-    unpacked: Option<bool>,
+    unpacked: bool,
 ) -> io::Result<Vec<String>> {
     let known: HashSet<String> = get_ids(root_path, unpacked)?.into_iter().collect();
     let wanted: HashSet<String> = wanted
@@ -242,7 +242,7 @@ fn check_missing_dependencies(root: &str, packet: &Packet) -> Result<(), io::Err
         .map(|d| d.packet.clone())
         .collect::<Vec<String>>();
 
-    let missing_packets = get_missing_ids(root, &deps, Some(true))?;
+    let missing_packets = get_missing_ids(root, &deps, true)?;
     if !missing_packets.is_empty() {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
@@ -256,20 +256,36 @@ fn check_missing_dependencies(root: &str, packet: &Packet) -> Result<(), io::Err
     Ok(())
 }
 
-pub fn add_metadata(root: &str, data: &str, hash: &hash::Hash) -> io::Result<()> {
-    let packet: Packet = serde_json::from_str(data)?;
-    let hash_str = hash.to_string();
-
-    hash::validate_hash_data(data.as_bytes(), &hash_str).map_err(hash::hash_error_to_io_error)?;
-    check_missing_files(root, &packet)?;
-    check_missing_dependencies(root, &packet)?;
+fn add_parsed_metadata(root: &str, data: &str, packet: &Packet, hash: &str) -> io::Result<()> {
+    hash::validate_hash_data(data.as_bytes(), &hash).map_err(hash::hash_error_to_io_error)?;
 
     let path = get_path(root, &packet.id);
-
     if !path.exists() {
         fs::File::create(&path)?;
         fs::write(path, data)?;
     }
+    Ok(())
+}
+
+/// Add metadata to the repository.
+#[cfg(test)] // Only used from tests at the moment.
+pub fn add_metadata(root: &str, data: &str, hash: &hash::Hash) -> io::Result<()> {
+    let packet: Packet = serde_json::from_str(data)?;
+    add_parsed_metadata(root, data, &packet, &hash.to_string())
+}
+
+/// Add a packet to the repository.
+///
+/// The packet's files and dependencies must already be present in the repository.
+pub fn add_packet(root: &str, data: &str, hash: &hash::Hash) -> io::Result<()> {
+    let packet: Packet = serde_json::from_str(data)?;
+    let hash_str = hash.to_string();
+
+    check_missing_files(root, &packet)?;
+    check_missing_dependencies(root, &packet)?;
+
+    add_parsed_metadata(root, data, &packet, &hash.to_string())?;
+
     let time = SystemTime::now();
     location::mark_packet_known(&packet.id, "local", &hash_str, time, root)?;
     Ok(())
@@ -278,7 +294,8 @@ pub fn add_metadata(root: &str, data: &str, hash: &hash::Hash) -> io::Result<()>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils::tests::get_temp_outpack_root;
+    use crate::store::file_exists;
+    use crate::test_utils::tests::{get_temp_outpack_root, start_packet};
     use crate::utils::time_as_num;
     use serde_json::Value;
     use sha2::{Digest, Sha256};
@@ -341,7 +358,7 @@ mod tests {
 
     #[test]
     fn can_get_ids() {
-        let ids = get_ids("tests/example", None).unwrap();
+        let ids = get_ids("tests/example", false).unwrap();
         assert_eq!(ids.len(), 4);
         assert!(ids.iter().any(|e| e == "20170818-164830-33e0ab01"));
         assert!(ids.iter().any(|e| e == "20170818-164847-7574883b"));
@@ -351,7 +368,7 @@ mod tests {
 
     #[test]
     fn can_get_unpacked_ids() {
-        let ids = get_ids("tests/example", Some(true)).unwrap();
+        let ids = get_ids("tests/example", true).unwrap();
         assert_eq!(ids.len(), 1);
         assert!(ids.iter().any(|e| e == "20170818-164847-7574883b"));
     }
@@ -364,7 +381,7 @@ mod tests {
                 "20180818-164043-7cdcde4b".to_string(),
                 "20170818-164830-33e0ab02".to_string(),
             ],
-            None,
+            false,
         )
         .unwrap();
         assert_eq!(ids.len(), 1);
@@ -377,7 +394,7 @@ mod tests {
                 "20180818-164043-7cdcde4b".to_string(),
                 "20170818-164830-33e0ab02".to_string(),
             ],
-            None,
+            false,
         )
         .unwrap();
         assert_eq!(ids.len(), 1);
@@ -392,7 +409,7 @@ mod tests {
                 "20170818-164847-7574883b".to_string(),
                 "20170818-164830-33e0ab02".to_string(),
             ],
-            Some(true),
+            true,
         )
         .unwrap();
         assert_eq!(ids.len(), 1);
@@ -407,14 +424,14 @@ mod tests {
                 "20180818-164043-7cdcde4b".to_string(),
                 "20170818-164830-33e0ab0".to_string(),
             ],
-            None,
+            false,
         )
         .map_err(|e| e.kind());
         assert_eq!(Err(io::ErrorKind::InvalidInput), res);
     }
 
     #[test]
-    fn can_add_metadata() {
+    fn can_add_packet() {
         let data = r#"{
                              "schema_version": "0.0.1",
                               "name": "computed-resource",
@@ -441,14 +458,14 @@ mod tests {
         let hash = hash::hash_data(data.as_bytes(), hash::HashAlgorithm::Sha256);
         let root = get_temp_outpack_root();
         let root_path = root.to_str().unwrap();
-        add_metadata(root_path, data, &hash).unwrap();
+        add_packet(root_path, data, &hash).unwrap();
         let packet = get_metadata_by_id(root_path, "20230427-150828-68772cee").unwrap();
         let expected: Value = serde_json::from_str(data).unwrap();
         assert_eq!(packet, expected);
     }
 
     #[test]
-    fn add_metadata_is_idempotent() {
+    fn add_packet_is_idempotent() {
         let data = r#"{
                              "schema_version": "0.0.1",
                               "name": "computed-resource",
@@ -467,11 +484,11 @@ mod tests {
         let hash = hash::hash_data(data.as_bytes(), hash::HashAlgorithm::Sha256);
         let root = get_temp_outpack_root();
         let root_path = root.to_str().unwrap();
-        add_metadata(root_path, data, &hash).unwrap();
+        add_packet(root_path, data, &hash).unwrap();
         let packet = get_metadata_by_id(root_path, "20230427-150828-68772cee").unwrap();
         let expected: Value = serde_json::from_str(data).unwrap();
         assert_eq!(packet, expected);
-        add_metadata(root_path, data, &hash).unwrap();
+        add_packet(root_path, data, &hash).unwrap();
     }
 
     #[test]
@@ -495,7 +512,7 @@ mod tests {
         let root = get_temp_outpack_root();
         let root_path = root.to_str().unwrap();
         let now = SystemTime::now();
-        add_metadata(root_path, data, &hash).unwrap();
+        add_packet(root_path, data, &hash).unwrap();
         let path = Path::new(root_path)
             .join(".outpack")
             .join("location")
@@ -512,61 +529,55 @@ mod tests {
     }
 
     #[test]
-    fn cannot_put_metadata_with_missing_files() {
-        let data = r#"{
-                             "schema_version": "0.0.1",
-                              "name": "computed-resource",
-                              "id": "20230427-150828-68772cee",
-                              "time": {
-                                "start": 1682608108.4139,
-                                "end": 1682608108.4309
-                              },
-                              "parameters": null,
-                              "files": [
-                                {
-                                  "path": "data.csv",
-                                  "size": 51,
-                                  "hash": "sha256:c7b512b2d14a7caae8968830760cb95980a98e18ca2c2991b87c71529e223164"
-                                }
-                              ],
-                              "depends": [],
-                              "script": [
-                                "orderly.R"
-                              ]
-                            }"#;
-        let hash = hash::hash_data(data.as_bytes(), hash::HashAlgorithm::Sha256);
+    fn can_add_metadata_with_missing_files() {
         let root = get_temp_outpack_root();
         let root_path = root.to_str().unwrap();
-        let res = add_metadata(root_path, data, &hash);
-        assert_eq!(res.unwrap_err().to_string(),
-                   "Can't import metadata for 20230427-150828-68772cee, as files missing: \n sha256:c7b512b2d14a7caae8968830760cb95980a98e18ca2c2991b87c71529e223164");
+
+        let file_hash = "sha256:c7b512b2d14a7caae8968830760cb95980a98e18ca2c2991b87c71529e223164";
+
+        assert!(!file_exists(root_path, file_hash).unwrap());
+
+        let (_, metadata, hash) = start_packet("data")
+            .add_file("data.csv", file_hash, 51)
+            .finish();
+
+        add_metadata(root_path, &metadata, &hash).unwrap();
     }
 
     #[test]
-    fn cannot_put_metadata_with_missing_dependencies() {
-        let data = r#"{
-                             "schema_version": "0.0.1",
-                              "name": "computed-resource",
-                              "id": "20230427-150828-68772cee",
-                              "time": {
-                                "start": 1682608108.4139,
-                                "end": 1682608108.4309
-                              },
-                              "parameters": null,
-                              "files": [],
-                              "depends": [{
-                                "packet": "20230427-150828-68772cea",
-                                "files": []
-                              }],
-                              "script": [
-                                "orderly.R"
-                              ]
-                            }"#;
-        let hash = hash::hash_data(data.as_bytes(), hash::HashAlgorithm::Sha256);
+    fn cannot_add_packet_with_missing_files() {
         let root = get_temp_outpack_root();
         let root_path = root.to_str().unwrap();
-        let res = add_metadata(root_path, data, &hash);
-        assert_eq!(res.unwrap_err().to_string(),
-                   "Can't import metadata for 20230427-150828-68772cee, as dependencies missing: \n 20230427-150828-68772cea");
+
+        let file_hash = "sha256:c7b512b2d14a7caae8968830760cb95980a98e18ca2c2991b87c71529e223164";
+
+        assert!(!file_exists(root_path, file_hash).unwrap());
+
+        let (_, metadata, hash) = start_packet("data")
+            .add_file("data.csv", file_hash, 51)
+            .finish();
+
+        let res = add_packet(root_path, &metadata, &hash);
+        assert_regex!(
+            res.unwrap_err().to_string(),
+            "Can't import metadata for .*, as files missing:"
+        );
+    }
+
+    #[test]
+    fn cannot_add_packet_with_missing_dependencies() {
+        let (dependency_id, _, _) = start_packet("upstream").finish();
+        let (_, metadata, hash) = start_packet("downstream")
+            .add_dependency(dependency_id, vec![])
+            .finish();
+
+        let root = get_temp_outpack_root();
+        let root_path = root.to_str().unwrap();
+
+        let res = add_packet(root_path, &metadata, &hash);
+        assert_regex!(
+            res.unwrap_err().to_string(),
+            "Can't import metadata for .*, as dependencies missing:"
+        );
     }
 }

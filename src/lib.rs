@@ -1,3 +1,6 @@
+#[macro_use]
+mod test_utils;
+
 pub mod api;
 pub mod config;
 pub mod index;
@@ -7,8 +10,8 @@ pub mod query;
 mod hash;
 mod location;
 mod metadata;
+mod metrics;
 mod outpack_file;
 mod responses;
 mod store;
-mod test_utils;
 mod utils;
