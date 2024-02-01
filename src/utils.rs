@@ -28,9 +28,9 @@ mod tests {
 
     #[test]
     fn can_detect_packet_id() {
-        assert_eq!(is_packet(&OsString::from("1234")), false);
-        assert_eq!(is_packet(&OsString::from("20170818-164830-33e0ab01")), true);
-        assert_eq!(is_packet(&OsString::from("20180818-164847-54699abf")), true)
+        assert!(!is_packet(&OsString::from("1234")));
+        assert!(is_packet(&OsString::from("20170818-164830-33e0ab01")));
+        assert!(is_packet(&OsString::from("20180818-164847-54699abf")))
     }
 
     #[test]

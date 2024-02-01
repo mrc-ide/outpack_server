@@ -297,7 +297,7 @@ mod tests {
         let all_packets = get_metadata_from_date(Path::new("tests/example"), None).unwrap();
         assert_eq!(all_packets.len(), 4);
         let recent_packets =
-            get_metadata_from_date(Path::new("tests/example"), Some(1662480556 as f64)).unwrap();
+            get_metadata_from_date(Path::new("tests/example"), Some(1662480556.)).unwrap();
         assert_eq!(recent_packets.len(), 1);
         assert_eq!(
             recent_packets.first().unwrap().id,
@@ -305,7 +305,7 @@ mod tests {
         );
 
         let recent_packets =
-            get_metadata_from_date(Path::new("tests/example"), Some(1662480555 as f64)).unwrap();
+            get_metadata_from_date(Path::new("tests/example"), Some(1662480555.)).unwrap();
         assert_eq!(recent_packets.len(), 4);
     }
 
@@ -370,7 +370,7 @@ mod tests {
     fn can_get_missing_ids() {
         let ids = get_missing_ids(
             Path::new("tests/example"),
-            &vec![
+            &[
                 "20180818-164043-7cdcde4b".to_string(),
                 "20170818-164830-33e0ab02".to_string(),
             ],
@@ -383,7 +383,7 @@ mod tests {
         // check whitespace insensitivity
         let ids = get_missing_ids(
             Path::new("tests/example"),
-            &vec![
+            &[
                 "20180818-164043-7cdcde4b".to_string(),
                 "20170818-164830-33e0ab02".to_string(),
             ],
@@ -398,7 +398,7 @@ mod tests {
     fn can_get_missing_unpacked_ids() {
         let ids = get_missing_ids(
             Path::new("tests/example"),
-            &vec![
+            &[
                 "20170818-164847-7574883b".to_string(),
                 "20170818-164830-33e0ab02".to_string(),
             ],
@@ -413,7 +413,7 @@ mod tests {
     fn bad_ids_raise_error() {
         let res = get_missing_ids(
             Path::new("tests/example"),
-            &vec![
+            &[
                 "20180818-164043-7cdcde4b".to_string(),
                 "20170818-164830-33e0ab0".to_string(),
             ],

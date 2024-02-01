@@ -115,7 +115,7 @@ mod tests {
     #[test]
     fn repository_collector_empty_repo() {
         let root = get_empty_outpack_root();
-        let collector = RepositoryCollector::new(&root);
+        let collector = RepositoryCollector::new(root);
 
         assert_eq!(collector.metadata_total.get(), 0);
         assert_eq!(collector.packets_total.get(), 0);
