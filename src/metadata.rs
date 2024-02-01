@@ -257,8 +257,7 @@ fn check_missing_dependencies(root: &str, packet: &Packet) -> Result<(), io::Err
 }
 
 fn add_parsed_metadata(root: &str, data: &str, packet: &Packet, hash: &str) -> io::Result<()> {
-    hash::validate_hash_data(data.as_bytes(), &hash).map_err(hash::hash_error_to_io_error)?;
-
+    hash::validate_hash_data(data.as_bytes(), hash).map_err(hash::hash_error_to_io_error)?;
     let path = get_path(root, &packet.id);
     if !path.exists() {
         fs::File::create(&path)?;
