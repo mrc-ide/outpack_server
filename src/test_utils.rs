@@ -66,7 +66,7 @@ pub mod tests {
         let tmp_dir = tempdir::TempDir::new("outpack").expect("Temp dir created");
 
         outpack_init(
-            tmp_dir.path().to_str().expect("valid path"),
+            tmp_dir.path(),
             None,
             /* use_file_store */ true,
             /* require_complete_tree */ true,

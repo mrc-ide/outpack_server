@@ -1,12 +1,13 @@
 use crate::metadata;
 use crate::store;
 use prometheus::{core::Collector, core::Desc, IntGauge, Opts, Registry};
+use std::path::{Path, PathBuf};
 
 /// A prometheus collector with metrics for the state of the repository.
 ///
 /// The metrics are collected lazily whenever the metrics endpoint is called.
 struct RepositoryCollector {
-    root: String,
+    root: PathBuf,
     metadata_total: IntGauge,
     packets_total: IntGauge,
     files_total: IntGauge,
@@ -15,7 +16,7 @@ struct RepositoryCollector {
 }
 
 impl RepositoryCollector {
-    pub fn new(root: impl Into<String>) -> RepositoryCollector {
+    pub fn new(root: impl Into<PathBuf>) -> RepositoryCollector {
         let namespace = "outpack_server";
         let make_opts = |name: &str, help: &str| Opts::new(name, help).namespace(namespace);
 
@@ -97,8 +98,8 @@ impl Collector for RepositoryCollector {
     }
 }
 
-pub fn register(registry: &Registry, root_path: &str) -> prometheus::Result<()> {
-    registry.register(Box::new(RepositoryCollector::new(root_path)))?;
+pub fn register(registry: &Registry, root: &Path) -> prometheus::Result<()> {
+    registry.register(Box::new(RepositoryCollector::new(root)))?;
     Ok(())
 }
 
@@ -113,7 +114,7 @@ mod tests {
 
     #[test]
     fn repository_collector_empty_repo() {
-        let root = get_empty_outpack_root().to_str().unwrap().to_owned();
+        let root = get_empty_outpack_root();
         let collector = RepositoryCollector::new(&root);
 
         assert_eq!(collector.metadata_total.get(), 0);
@@ -124,7 +125,7 @@ mod tests {
 
     #[tokio::test]
     async fn repository_collector_files() {
-        let root = get_empty_outpack_root().to_str().unwrap().to_owned();
+        let root = get_empty_outpack_root();
         let collector = RepositoryCollector::new(&root);
 
         let data1 = b"Testing 123";
@@ -145,7 +146,7 @@ mod tests {
 
     #[test]
     fn repository_collector_packets() {
-        let root = get_empty_outpack_root().to_str().unwrap().to_owned();
+        let root = get_empty_outpack_root();
         let collector = RepositoryCollector::new(&root);
 
         // Create two different packets.

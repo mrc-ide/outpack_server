@@ -47,8 +47,8 @@ pub fn read_location(path: PathBuf) -> io::Result<Vec<LocationEntry>> {
     Ok(packets)
 }
 
-pub fn read_locations(root_path: &str) -> io::Result<Vec<LocationEntry>> {
-    let path = Path::new(root_path).join(".outpack").join("location");
+pub fn read_locations(root_path: &Path) -> io::Result<Vec<LocationEntry>> {
+    let path = root_path.join(".outpack").join("location");
 
     let location_config = config::read_config(root_path)?.location;
 
@@ -75,7 +75,7 @@ pub fn mark_packet_known(
     location_id: &str,
     hash: &str,
     time: SystemTime,
-    root: &str,
+    root: &Path,
 ) -> io::Result<()> {
     let entry = LocationEntry {
         packet: String::from(packet_id),
@@ -83,10 +83,7 @@ pub fn mark_packet_known(
         hash: String::from(hash),
     };
 
-    let location_path = Path::new(root)
-        .join(".outpack")
-        .join("location")
-        .join(location_id);
+    let location_path = root.join(".outpack").join("location").join(location_id);
 
     fs::create_dir_all(&location_path)?;
     let path = location_path.join(packet_id);
@@ -106,7 +103,7 @@ mod tests {
 
     #[test]
     fn packets_ordered_by_location_order_then_id() {
-        let entries = read_locations("tests/example").unwrap();
+        let entries = read_locations(Path::new("tests/example")).unwrap();
         assert_eq!(entries[0].packet, "20170818-164847-7574883b");
         assert_eq!(entries[1].packet, "20170818-164830-33e0ab01");
         assert_eq!(entries[2].packet, "20180220-095832-16a4bbed");
@@ -116,10 +113,10 @@ mod tests {
     #[test]
     fn can_mark_known() {
         let root = get_temp_outpack_root();
-        let loc_a = Path::new(root.as_path()).join(".outpack/location/another");
+        let loc_a = root.join(".outpack/location/another");
         let entries_a = read_location(loc_a).unwrap();
         let entry_a = entries_a.first().unwrap();
-        let loc_b = Path::new(root.as_path()).join(".outpack/location/local");
+        let loc_b = root.join(".outpack/location/local");
         let entries_b = read_location(loc_b.clone()).unwrap();
         assert!(entries_b
             .iter()
@@ -131,7 +128,7 @@ mod tests {
             "local",
             &entry_a.hash,
             SystemTime::now(),
-            root.as_path().to_str().unwrap(),
+            &root,
         )
         .unwrap();
         let entries_b = read_location(loc_b).unwrap();
@@ -147,7 +144,7 @@ mod tests {
     #[test]
     fn marking_known_does_not_overwrite() {
         let root = get_temp_outpack_root();
-        let loc_a = Path::new(root.as_path()).join(".outpack/location/another");
+        let loc_a = root.join(".outpack/location/another");
         let entries_a = read_location(loc_a).unwrap();
         let entry_a = entries_a.first().unwrap();
         let now = SystemTime::now();
@@ -156,11 +153,11 @@ mod tests {
             "local",
             &entry_a.hash,
             SystemTime::now(),
-            root.as_path().to_str().unwrap(),
+            &root,
         )
         .unwrap();
 
-        let loc_b = Path::new(root.as_path()).join(".outpack/location/local");
+        let loc_b = root.join(".outpack/location/local");
         let entries_b = read_location(loc_b.clone()).unwrap();
         let res = entries_b
             .iter()
@@ -173,7 +170,7 @@ mod tests {
             "local",
             &entry_a.hash,
             SystemTime::now() + Duration::from_secs(120),
-            root.as_path().to_str().unwrap(),
+            &root,
         )
         .unwrap();
 

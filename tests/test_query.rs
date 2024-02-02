@@ -1,19 +1,20 @@
 use outpack::query::QueryError;
+use std::path::Path;
 
-pub fn test_query(root: &str, query: &str, result: &str) {
+pub fn test_query(root: &Path, query: &str, result: &str) {
     let packets = outpack::query::run_query(root, query).unwrap();
     assert_eq!(packets, result);
 }
 
 #[test]
 fn locates_latest_packet() {
-    let root_path = "tests/example";
+    let root_path = Path::new("tests/example");
     test_query(root_path, "latest", "20180818-164043-7cdcde4b");
 }
 
 #[test]
 fn returns_parse_error_if_syntax_invalid() {
-    let root_path = "tests/example";
+    let root_path = Path::new("tests/example");
     let e = outpack::query::run_query(root_path, "invalid").unwrap_err();
     assert!(matches!(e, outpack::query::QueryError::ParseError(..)));
     let text = format!("{}", e);
@@ -29,7 +30,7 @@ fn eval_error_can_be_displayed() {
 
 #[test]
 fn can_get_packet_by_id() {
-    let root_path = "tests/example";
+    let root_path = Path::new("tests/example");
     test_query(
         root_path,
         r#"id == "20170818-164847-7574883b""#,
@@ -45,7 +46,7 @@ fn can_get_packet_by_id() {
 
 #[test]
 fn can_get_packet_by_name() {
-    let root_path = "tests/example";
+    let root_path = Path::new("tests/example");
     test_query(
         root_path,
         r#"name == "modup-201707-queries1""#,
@@ -64,7 +65,7 @@ fn can_get_packet_by_name() {
 
 #[test]
 fn can_get_latest_of_lookup() {
-    let root_path = "tests/example";
+    let root_path = Path::new("tests/example");
     test_query(
         root_path,
         r#"latest(name == "modup-201707-queries1")"#,
@@ -74,7 +75,7 @@ fn can_get_latest_of_lookup() {
 
 #[test]
 fn can_get_packet_by_parameter() {
-    let root_path = "tests/example";
+    let root_path = Path::new("tests/example");
     let packets = outpack::query::run_query(root_path, r#"parameter:disease == "YF""#).unwrap();
     assert_eq!(
         packets,
@@ -95,7 +96,7 @@ fn can_get_packet_by_parameter() {
 
 #[test]
 fn can_get_packet_by_boolean_parameter() {
-    let root_path = "tests/example";
+    let root_path = Path::new("tests/example");
     test_query(
         root_path,
         "parameter:pull_data == TRUE",
@@ -125,7 +126,7 @@ fn can_get_packet_by_boolean_parameter() {
 
 #[test]
 fn can_get_packet_by_numeric_parameter() {
-    let root_path = "tests/example";
+    let root_path = Path::new("tests/example");
     test_query(
         root_path,
         "parameter:tolerance == 0.001",
@@ -171,7 +172,7 @@ fn can_get_packet_by_numeric_parameter() {
 
 #[test]
 fn no_packets_returned_incompatible_types() {
-    let root_path = "tests/example";
+    let root_path = Path::new("tests/example");
     test_query(root_path, "id == 12345", "Found no packets");
     test_query(root_path, "id == true", "Found no packets");
     test_query(root_path, "name == true", "Found no packets");
@@ -179,7 +180,7 @@ fn no_packets_returned_incompatible_types() {
 
 #[test]
 fn can_get_packet_other_comparisons() {
-    let root_path = "tests/example";
+    let root_path = Path::new("tests/example");
     test_query(
         root_path,
         "parameter:tolerance < 0.002",
@@ -217,7 +218,7 @@ fn can_get_packet_other_comparisons() {
 
 #[test]
 fn query_supports_groupings() {
-    let root_path = "tests/example";
+    let root_path = Path::new("tests/example");
     test_query(
         root_path,
         r#"(name == "modup-201707-queries1")"#,
@@ -270,7 +271,7 @@ fn query_and_is_highest_precedence() {
     // This difference is clear if A is true, B is true and C is false
     // A || (B && C) -> TRUE
     // (A || B) && C -> FALSE
-    let root_path = "tests/example";
+    let root_path = Path::new("tests/example");
 
     test_query(
         root_path,
@@ -286,7 +287,7 @@ fn query_and_is_highest_precedence() {
 
 #[test]
 fn query_functions_can_be_nested() {
-    let root_path = "tests/example";
+    let root_path = Path::new("tests/example");
 
     test_query(
         root_path,
@@ -297,7 +298,7 @@ fn query_functions_can_be_nested() {
 
 #[test]
 fn query_can_assert_single_return() {
-    let root_path = "tests/example";
+    let root_path = Path::new("tests/example");
     test_query(
         root_path,
         "single(parameter:pull_data == TRUE)",
@@ -313,7 +314,7 @@ fn query_can_assert_single_return() {
 
 #[test]
 fn comparisons_work_in_any_order_with_any_types() {
-    let root_path = "tests/example";
+    let root_path = Path::new("tests/example");
     test_query(
         root_path,
         "parameter:pull_data == TRUE",

@@ -1,13 +1,14 @@
 use crate::metadata::{get_metadata_from_date, Packet};
 use std::io;
+use std::path::Path;
 
 #[derive(Clone)]
 pub struct Index {
     pub packets: Vec<Packet>,
 }
 
-pub fn get_packet_index(root_path: &str) -> io::Result<Index> {
-    let packets = get_metadata_from_date(root_path, None)?;
+pub fn get_packet_index(root: &Path) -> io::Result<Index> {
+    let packets = get_metadata_from_date(root, None)?;
     Ok(Index { packets })
 }
 
@@ -17,7 +18,7 @@ mod tests {
 
     #[test]
     fn can_get_packet_index() {
-        let index = get_packet_index("tests/example").unwrap();
+        let index = get_packet_index(Path::new("tests/example")).unwrap();
         assert_eq!(index.packets.len(), 4);
         let ids: Vec<String> = index
             .packets

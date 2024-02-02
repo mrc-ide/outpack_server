@@ -61,9 +61,9 @@ impl<'a, const N: usize> IntoTempFile<'a> for &'a [u8; N] {
     }
 }
 
-pub fn file_path(root: &str, hash: &str) -> io::Result<PathBuf> {
+pub fn file_path(root: &Path, hash: &str) -> io::Result<PathBuf> {
     let parsed: hash::Hash = hash.parse().map_err(hash::hash_error_to_io_error)?;
-    Ok(Path::new(root)
+    Ok(root
         .join(".outpack")
         .join("files")
         .join(parsed.algorithm.to_string())
@@ -71,12 +71,12 @@ pub fn file_path(root: &str, hash: &str) -> io::Result<PathBuf> {
         .join(&parsed.value[2..]))
 }
 
-pub fn file_exists(root: &str, hash: &str) -> io::Result<bool> {
+pub fn file_exists(root: &Path, hash: &str) -> io::Result<bool> {
     let path = file_path(root, hash)?;
     Ok(fs::metadata(path).is_ok())
 }
 
-pub fn get_missing_files(root: &str, wanted: &[String]) -> io::Result<Vec<String>> {
+pub fn get_missing_files(root: &Path, wanted: &[String]) -> io::Result<Vec<String>> {
     wanted
         .iter()
         .filter_map(|h| match file_exists(root, h) {
@@ -87,7 +87,7 @@ pub fn get_missing_files(root: &str, wanted: &[String]) -> io::Result<Vec<String
         .collect()
 }
 
-pub async fn put_file(root: &str, file: impl IntoTempFile<'_>, hash: &str) -> io::Result<()> {
+pub async fn put_file(root: &Path, file: impl IntoTempFile<'_>, hash: &str) -> io::Result<()> {
     let mut file = file.into_temp_file();
     let temp_dir = tempdir_in(root)?;
     let temp_path = temp_dir.path().join("data");
@@ -104,8 +104,8 @@ pub async fn put_file(root: &str, file: impl IntoTempFile<'_>, hash: &str) -> io
     }
 }
 
-pub fn enumerate_files(root: &str) -> impl Iterator<Item = DirEntry> {
-    let directory = Path::new(root).join(".outpack").join("files");
+pub fn enumerate_files(root: &Path) -> impl Iterator<Item = DirEntry> {
+    let directory = root.join(".outpack").join("files");
 
     WalkDir::new(directory)
         .into_iter()
@@ -123,7 +123,7 @@ mod tests {
     #[test]
     fn can_get_path() {
         let hash = "sha256:e9aa9f2212ab";
-        let res = file_path("root", hash).unwrap();
+        let res = file_path(Path::new("root"), hash).unwrap();
         assert_eq!(
             res,
             Path::new("root")
@@ -138,7 +138,7 @@ mod tests {
     #[test]
     fn path_propagates_error_on_invalid_hash() {
         let hash = "sha256";
-        let res = file_path("root", hash);
+        let res = file_path(Path::new("root"), hash);
         assert!(res.is_err());
         assert_eq!(res.unwrap_err().to_string(), "Invalid hash format 'sha256'")
     }
@@ -150,14 +150,13 @@ mod tests {
         let hash = hash_data(data, HashAlgorithm::Sha256);
         let hash_str = hash.to_string();
 
-        let root_str = root.to_str().unwrap();
-        let res = put_file(root_str, data, &hash.to_string()).await;
-        let expected = file_path(root_str, &hash_str).unwrap();
+        let res = put_file(&root, data, &hash.to_string()).await;
+        let expected = file_path(&root, &hash_str).unwrap();
         let expected = expected.to_str().unwrap();
         assert!(res.is_ok());
         assert_eq!(fs::read(expected).unwrap(), data);
 
-        let res = put_file(root_str, data, &hash_str).await;
+        let res = put_file(&root, data, &hash_str).await;
         println!("{:?}", res);
         assert!(res.is_ok());
     }
@@ -166,8 +165,7 @@ mod tests {
     async fn put_file_validates_hash_format() {
         let root = get_temp_outpack_root();
         let data = b"Testing 123.";
-        let root_path = root.to_str().unwrap();
-        let res = put_file(root_path, data, "badhash").await;
+        let res = put_file(&root, data, "badhash").await;
         assert_eq!(
             res.unwrap_err().to_string(),
             "Invalid hash format 'badhash'"
@@ -178,8 +176,7 @@ mod tests {
     async fn put_file_validates_hash_match() {
         let root = get_temp_outpack_root();
         let data = b"Testing 123.";
-        let root_path = root.to_str().unwrap();
-        let res = put_file(root_path, data, "md5:abcde").await;
+        let res = put_file(&root, data, "md5:abcde").await;
         assert_eq!(
             res.unwrap_err().to_string(),
             "Expected hash 'md5:abcde' but found 'md5:6df8571d7b178e6fbb982ad0f5cd3bc1'"
@@ -189,8 +186,7 @@ mod tests {
     #[tokio::test]
     async fn enumerate_files_works() {
         let root = get_temp_outpack_root();
-        let root_path = root.to_str().unwrap();
-        let files: Vec<_> = enumerate_files(&root_path)
+        let files: Vec<_> = enumerate_files(&root)
             .map(|entry| entry.file_name().to_owned())
             .collect();
 

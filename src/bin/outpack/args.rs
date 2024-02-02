@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 #[derive(clap::Parser, Debug)]
 pub struct Args {
     #[command(subcommand)]
@@ -8,7 +10,7 @@ pub struct Args {
 pub enum Command {
     /// Initialize a new outpack repository
     Init {
-        path: String,
+        path: PathBuf,
 
         /// Path to the archive in which packets are stored.
         #[arg(long)]
@@ -26,7 +28,7 @@ pub enum Command {
     /// Search for a packet in a repository
     Search {
         #[arg(short, long)]
-        root: String,
+        root: PathBuf,
         query: String,
     },
 
@@ -36,6 +38,6 @@ pub enum Command {
     /// Start the outpack API server
     StartServer {
         #[arg(short, long)]
-        root: String,
+        root: PathBuf,
     },
 }

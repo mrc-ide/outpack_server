@@ -174,10 +174,11 @@ mod tests {
     use crate::test_utils::tests::assert_packet_ids_eq;
 
     use super::*;
+    use std::path::Path;
 
     #[test]
     fn query_lookup_works() {
-        let index = crate::index::get_packet_index("tests/example").unwrap();
+        let index = crate::index::get_packet_index(Path::new("tests/example")).unwrap();
 
         let query = QueryNode::Test(
             TestOperator::Equal,
@@ -229,7 +230,7 @@ mod tests {
 
     #[test]
     fn query_latest_works() {
-        let index = crate::index::get_packet_index("tests/example").unwrap();
+        let index = crate::index::get_packet_index(Path::new("tests/example")).unwrap();
 
         let query = QueryNode::Latest(None);
         let res = eval_query(&index, query).unwrap();
@@ -256,7 +257,7 @@ mod tests {
 
     #[test]
     fn can_get_parameter_as_literal() {
-        let packets = get_metadata_from_date("tests/example", None).unwrap();
+        let packets = get_metadata_from_date(Path::new("tests/example"), None).unwrap();
         assert_eq!(packets.len(), 4);
 
         let matching_packets: Vec<Packet> = packets
@@ -280,7 +281,7 @@ mod tests {
 
     #[test]
     fn can_test_lookup_filter() {
-        let packets = get_metadata_from_date("tests/example", None).unwrap();
+        let packets = get_metadata_from_date(Path::new("tests/example"), None).unwrap();
         assert_eq!(packets.len(), 4);
 
         let matching_packets: Vec<Packet> = packets
@@ -373,7 +374,7 @@ mod tests {
 
     #[test]
     fn can_use_different_test_types() {
-        let index = crate::index::get_packet_index("tests/example").unwrap();
+        let index = crate::index::get_packet_index(Path::new("tests/example")).unwrap();
 
         let query = QueryNode::Test(
             TestOperator::Equal,
@@ -444,7 +445,7 @@ mod tests {
 
     #[test]
     fn invalid_comparisons_dont_match() {
-        let index = crate::index::get_packet_index("tests/example").unwrap();
+        let index = crate::index::get_packet_index(Path::new("tests/example")).unwrap();
 
         let query = QueryNode::Test(
             TestOperator::GreaterThan,
@@ -493,7 +494,7 @@ mod tests {
 
     #[test]
     fn query_does_no_type_coersion() {
-        let index = crate::index::get_packet_index("tests/example").unwrap();
+        let index = crate::index::get_packet_index(Path::new("tests/example")).unwrap();
 
         let query = QueryNode::Test(
             TestOperator::Equal,
@@ -527,7 +528,7 @@ mod tests {
 
     #[test]
     fn query_with_negation_works() {
-        let index = crate::index::get_packet_index("tests/example").unwrap();
+        let index = crate::index::get_packet_index(Path::new("tests/example")).unwrap();
 
         let query = QueryNode::Negation(Box::new(QueryNode::Latest(None)));
         let res = eval_query(&index, query).unwrap();
@@ -549,7 +550,7 @@ mod tests {
 
     #[test]
     fn query_with_brackets_works() {
-        let index = crate::index::get_packet_index("tests/example").unwrap();
+        let index = crate::index::get_packet_index(Path::new("tests/example")).unwrap();
 
         let query = QueryNode::Brackets(Box::new(QueryNode::Latest(None)));
         let res = eval_query(&index, query).unwrap();
@@ -577,7 +578,7 @@ mod tests {
 
     #[test]
     fn query_with_boolean_operators_works() {
-        let index = crate::index::get_packet_index("tests/example").unwrap();
+        let index = crate::index::get_packet_index(Path::new("tests/example")).unwrap();
 
         let query = QueryNode::BooleanExpr(
             BooleanOperator::Or,
@@ -609,7 +610,7 @@ mod tests {
 
     #[test]
     fn query_with_single_works() {
-        let index = crate::index::get_packet_index("tests/example").unwrap();
+        let index = crate::index::get_packet_index(Path::new("tests/example")).unwrap();
 
         let query = QueryNode::Single(Box::new(QueryNode::Latest(None)));
         let res = eval_query(&index, query).unwrap();
@@ -627,7 +628,7 @@ mod tests {
 
     #[test]
     fn query_with_this_fails() {
-        let index = crate::index::get_packet_index("tests/example").unwrap();
+        let index = crate::index::get_packet_index(Path::new("tests/example")).unwrap();
         let query = QueryNode::Test(
             TestOperator::Equal,
             TestValue::Lookup(Lookup::This("x")),
@@ -640,7 +641,7 @@ mod tests {
 
     #[test]
     fn query_with_environment_fails() {
-        let index = crate::index::get_packet_index("tests/example").unwrap();
+        let index = crate::index::get_packet_index(Path::new("tests/example")).unwrap();
         let query = QueryNode::Test(
             TestOperator::Equal,
             TestValue::Lookup(Lookup::Environment("x")),

@@ -310,7 +310,7 @@ mod tests {
             validate_hash_file(file.path(), unexpected),
             Err(HashError::new(HashErrorKind::HashesDontMatch,
                                String::from("Expected hash 'sha1:2ef7bde608ce5404e97d5f042f95f89f1c232872' but found 'sha1:2ef7bde608ce5404e97d5f042f95f89f1c232871'"))));
-        let res = validate_hash_file(file.path().join("more").as_path(), expected);
+        let res = validate_hash_file(&file.path().join("more"), expected);
         assert!(res.is_err());
         assert_eq!(res.unwrap_err().kind, HashErrorKind::FileReadFailed);
     }
