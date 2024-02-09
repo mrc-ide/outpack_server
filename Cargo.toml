@@ -45,16 +45,7 @@ tempdir = "0.3.7"
 tar = "0.4.38"
 chrono = "0.4.33"
 rand = "0.8.5"
-
-# Unfortunately tracing-mock is not on crates.io, so it needs to be pulled from GitHub.
-tracing-mock = { git = "https://github.com/tokio-rs/tracing", branch = "v0.1.x" }
-
-[patch."https://github.com/tokio-rs/tracing"]
-# tracing-mock tries to pull its dependencies from the relative paths from its Git repository, but
-# we want to stick with crates.io version where we can so these need to be overriden.
-tracing = { version = "0.1.32" }
-tracing-core = { version = "0.1.32" }
-tracing-subscriber = { version = "0.3.18" }
+tracing-capture = "0.1.0"
 
 [features]
 python = [ "dep:pyo3" ]

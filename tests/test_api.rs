@@ -17,6 +17,8 @@ use tar::Builder;
 use tempdir::TempDir;
 use tower::Service;
 use tracing::instrument::WithSubscriber;
+use tracing_capture::{CaptureLayer, SharedStorage};
+use tracing_subscriber::{layer::SubscriberExt, Registry};
 use url::Url;
 
 static INIT: Once = Once::new();
@@ -688,6 +690,9 @@ async fn propagates_request_id() {
 
 #[tokio::test]
 async fn request_id_is_logged() {
+    use predicates::ord::eq;
+    use tracing_capture::predicates::{message, name, ScanExt};
+
     // tracing has a pretty obscure bug when exactly one subscriber exists, but other threads are
     // calling trace macros without a subscriber. We can work around it by creating a dummy
     // subscriber in the background. We need to assign it to a variable to ensure it does not get
@@ -695,14 +700,8 @@ async fn request_id_is_logged() {
     // See https://github.com/tokio-rs/tracing/issues/2874
     let _dont_drop_me = tracing::Dispatch::new(tracing::subscriber::NoSubscriber::new());
 
-    use tracing_mock::expect;
-    let (collector, handle) = tracing_mock::subscriber::mock()
-        .new_span(
-            expect::span()
-                .named("request")
-                .with_field(expect::field("request_id").with_value(&"foobar123")),
-        )
-        .run_with_handle();
+    let storage = SharedStorage::default();
+    let subscriber = Registry::default().with(CaptureLayer::new(&storage));
 
     let f = async {
         let mut client = get_default_client();
@@ -714,9 +713,15 @@ async fn request_id_is_logged() {
         client.request(request).await
     };
 
-    f.with_subscriber(collector).await;
+    f.with_subscriber(subscriber).await;
 
-    handle.assert_finished();
+    let storage = storage.lock();
+    let span = storage.scan_spans().single(&name(eq("request")));
+    assert!(span.value("request_id").unwrap().is_debug(&"foobar123"));
+    span.scan_events()
+        .single(&message(eq("started processing request")));
+    span.scan_events()
+        .single(&message(eq("finished processing request")));
 }
 
 fn validate_success(schema_group: &str, schema_name: &str, instance: &Value) {
