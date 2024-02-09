@@ -14,4 +14,5 @@ mod metrics;
 mod outpack_file;
 mod responses;
 mod store;
+mod upload;
 mod utils;

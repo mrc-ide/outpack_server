@@ -1,21 +1,23 @@
+use axum::body::Body;
+use axum::extract::Request;
+use axum::http::header::CONTENT_TYPE;
+use axum::http::StatusCode;
+use axum::response::Response;
 use jsonschema::{Draft, JSONSchema, SchemaResolverError};
-use rocket::http::{ContentType, Status};
-use rocket::local::blocking::Client;
-use rocket::serde::{Deserialize, Serialize};
-use rocket::{Build, Rocket};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::fs::File;
-
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::sync::Once;
 use tar::Archive;
 use tar::Builder;
 use tempdir::TempDir;
+use tower::Service;
+use tracing::instrument::WithSubscriber;
 use url::Url;
-
-use std::sync::Once;
 
 static INIT: Once = Once::new();
 
@@ -35,67 +37,151 @@ fn get_test_dir() -> PathBuf {
     tmp_dir.into_path().join("example")
 }
 
-fn get_test_rocket() -> Rocket<Build> {
-    let root = get_test_dir();
-    outpack::api::api(&root).unwrap()
+/// A wrapper around the Axum router to provide simpler helper functions.
+///
+/// These functions are designed to keep the test code clear and concise. As an effect, they do not
+/// propagate errors and instead panic when they occur. This is acceptable in tests, but should not
+/// be copied over to production code.
+struct TestClient(axum::Router);
+
+impl TestClient {
+    fn new(root: impl Into<PathBuf>) -> TestClient {
+        let api = outpack::api::api(&root.into()).unwrap();
+        TestClient(api)
+    }
+
+    async fn request(&mut self, request: Request) -> Response {
+        self.0.call(request).await.unwrap()
+    }
+
+    async fn get(&mut self, path: impl AsRef<str>) -> Response {
+        let request = Request::get(path.as_ref()).body(Body::empty()).unwrap();
+        self.request(request).await
+    }
+
+    async fn post(
+        &mut self,
+        path: impl AsRef<str>,
+        content_type: mime::Mime,
+        data: impl Into<Body>,
+    ) -> Response {
+        let request = Request::post(path.as_ref())
+            .header(CONTENT_TYPE, content_type.as_ref())
+            .body(data.into())
+            .unwrap();
+        self.request(request).await
+    }
+
+    async fn post_json<T: Serialize>(&mut self, path: impl AsRef<str>, data: &T) -> Response {
+        self.post(
+            path,
+            mime::APPLICATION_JSON,
+            serde_json::to_vec(data).unwrap(),
+        )
+        .await
+    }
+}
+
+fn get_default_client() -> TestClient {
+    TestClient::new(get_test_dir())
+}
+
+/// An extension trait implemented on the `Response` type for concise decoding.
+///
+/// Decoding errors are not propagated, and these method panic instead.
+#[axum::async_trait]
+trait ResponseExt {
+    fn content_type(&self) -> mime::Mime;
+    async fn to_bytes(self) -> axum::body::Bytes;
+    async fn to_string(self) -> String;
+    async fn to_json<T: for<'a> Deserialize<'a>>(self) -> T;
+}
+
+#[axum::async_trait]
+impl ResponseExt for Response {
+    fn content_type(&self) -> mime::Mime {
+        let value = self
+            .headers()
+            .get(CONTENT_TYPE)
+            .expect("content type header");
+
+        value
+            .to_str()
+            .expect("Non-printable header value")
+            .parse()
+            .expect("Invalid mime type")
+    }
+
+    async fn to_bytes(self) -> axum::body::Bytes {
+        let body = self.into_body();
+        axum::body::to_bytes(body, usize::MAX).await.unwrap()
+    }
+
+    async fn to_string(self) -> String {
+        let bytes = self.to_bytes().await;
+        std::str::from_utf8(&bytes)
+            .expect("Invalid utf-8 response")
+            .to_owned()
+    }
+
+    async fn to_json<T: for<'a> Deserialize<'a>>(self) -> T {
+        serde_json::from_slice(&self.to_bytes().await).expect("Invalid json response")
+    }
 }
 
 #[test]
-fn can_get_index() {
-    let rocket = get_test_rocket();
-    let client = Client::tracked(rocket).expect("valid rocket instance");
-    let response = client.get("/").dispatch();
-
-    assert_eq!(response.status(), Status::Ok);
-    assert_eq!(response.content_type(), Some(ContentType::JSON));
-
-    let body = serde_json::from_str(&response.into_string().unwrap()).unwrap();
-    validate_success("server", "root.json", &body);
-}
-
-#[test]
-fn error_if_cant_get_index() {
+fn error_if_invalid_root() {
     let res = outpack::api::api(Path::new("bad-root"));
     assert_eq!(
         res.unwrap_err().to_string(),
-        String::from("Outpack root not found at 'bad-root'")
+        "Outpack root not found at 'bad-root'"
     );
 }
 
-#[test]
-fn can_get_checksum() {
-    let rocket = get_test_rocket();
-    let client = Client::tracked(rocket).expect("valid rocket instance");
-    let response = client.get("/checksum").dispatch();
+#[tokio::test]
+async fn can_get_index() {
+    let mut client = get_default_client();
+    let response = client.get("/").await;
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.content_type(), mime::APPLICATION_JSON);
 
-    assert_eq!(response.status(), Status::Ok);
-    assert_eq!(response.content_type(), Some(ContentType::JSON));
-
-    let body = serde_json::from_str(&response.into_string().unwrap()).unwrap();
-    validate_success("outpack", "hash.json", &body);
-
-    let response = client.get("/checksum?alg=md5").dispatch();
-
-    assert_eq!(response.status(), Status::Ok);
-    assert_eq!(response.content_type(), Some(ContentType::JSON));
-
-    let response_string = &response.into_string().unwrap();
-    let body = serde_json::from_str(response_string).unwrap();
-    validate_success("outpack", "hash.json", &body);
-    assert!(response_string.contains("md5"))
+    let body = response.to_json().await;
+    validate_success("server", "root.json", &body);
 }
 
-#[test]
-fn can_list_location_metadata() {
-    let rocket = get_test_rocket();
-    let client = Client::tracked(rocket).expect("valid rocket instance");
-    let response = client.get("/metadata/list").dispatch();
+#[tokio::test]
+async fn can_get_checksum() {
+    let mut client = get_default_client();
 
-    assert_eq!(response.status(), Status::Ok);
-    assert_eq!(response.content_type(), Some(ContentType::JSON));
+    let response = client.get("/checksum").await;
 
-    let body: Value = serde_json::from_str(&response.into_string().unwrap()).unwrap();
-    print!("{}", body);
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.content_type(), mime::APPLICATION_JSON);
+
+    let body = response.to_json().await;
+    validate_success("outpack", "hash.json", &body);
+
+    let response = client.get("/checksum?alg=md5").await;
+
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.content_type(), mime::APPLICATION_JSON);
+
+    let body = response.to_json().await;
+    validate_success("outpack", "hash.json", &body);
+
+    let hash = body["data"].as_str().unwrap();
+    assert!(hash.starts_with("md5:"));
+}
+
+#[tokio::test]
+async fn can_list_location_metadata() {
+    let mut client = get_default_client();
+    let response = client.get("/metadata/list").await;
+
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.content_type(), mime::APPLICATION_JSON);
+
+    let body = response.to_json().await;
     validate_success("server", "locations.json", &body);
 
     let entries = body.get("data").unwrap().as_array().unwrap();
@@ -128,28 +214,26 @@ fn can_list_location_metadata() {
     );
 }
 
-#[test]
-fn handles_location_metadata_errors() {
-    let rocket = outpack::api::api(Path::new("tests/bad-example")).unwrap();
-    let client = Client::tracked(rocket).expect("valid rocket instance");
-    let response = client.get("/metadata/list").dispatch();
-    assert_eq!(response.status(), Status::InternalServerError);
-    assert_eq!(response.content_type(), Some(ContentType::JSON));
+#[tokio::test]
+async fn handles_location_metadata_errors() {
+    let mut client = TestClient::new("tests/bad-example");
+    let response = client.get("/metadata/list").await;
+    assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    assert_eq!(response.content_type(), mime::APPLICATION_JSON);
 
-    let body = serde_json::from_str(&response.into_string().unwrap()).unwrap();
+    let body = response.to_json().await;
     validate_error(&body, Some("missing field `packet`"));
 }
 
-#[test]
-fn can_list_metadata() {
-    let rocket = get_test_rocket();
-    let client = Client::tracked(rocket).expect("valid rocket instance");
-    let response = client.get("/packit/metadata").dispatch();
+#[tokio::test]
+async fn can_list_metadata() {
+    let mut client = get_default_client();
+    let response = client.get("/packit/metadata").await;
 
-    assert_eq!(response.status(), Status::Ok);
-    assert_eq!(response.content_type(), Some(ContentType::JSON));
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.content_type(), mime::APPLICATION_JSON);
 
-    let body: Value = serde_json::from_str(&response.into_string().unwrap()).unwrap();
+    let body = response.to_json().await;
     print!("{}", body);
     validate_success("server", "list.json", &body);
 
@@ -202,18 +286,15 @@ fn can_list_metadata() {
     );
 }
 
-#[test]
-fn can_list_metadata_from_date() {
-    let rocket = get_test_rocket();
-    let client = Client::tracked(rocket).expect("valid rocket instance");
-    let response = client
-        .get("/packit/metadata?known_since=1662480556")
-        .dispatch();
+#[tokio::test]
+async fn can_list_metadata_from_date() {
+    let mut client = get_default_client();
+    let response = client.get("/packit/metadata?known_since=1662480556").await;
 
-    assert_eq!(response.status(), Status::Ok);
-    assert_eq!(response.content_type(), Some(ContentType::JSON));
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.content_type(), mime::APPLICATION_JSON);
 
-    let body: Value = serde_json::from_str(&response.into_string().unwrap()).unwrap();
+    let body = response.to_json().await;
     print!("{}", body);
     validate_success("server", "list.json", &body);
 
@@ -225,95 +306,86 @@ fn can_list_metadata_from_date() {
     );
 }
 
-#[test]
-fn handles_metadata_errors() {
-    let rocket = outpack::api::api(Path::new("tests/bad-example")).unwrap();
-    let client = Client::tracked(rocket).expect("valid rocket instance");
-    let response = client.get("/packit/metadata").dispatch();
-    assert_eq!(response.status(), Status::InternalServerError);
-    assert_eq!(response.content_type(), Some(ContentType::JSON));
+#[tokio::test]
+async fn handles_metadata_errors() {
+    let mut client = TestClient::new("tests/bad-example");
+    let response = client.get("/packit/metadata").await;
+    assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    assert_eq!(response.content_type(), mime::APPLICATION_JSON);
 
-    let body = serde_json::from_str(&response.into_string().unwrap()).unwrap();
+    let body = response.to_json().await;
     validate_error(&body, Some("missing field `name`"));
 }
 
-#[test]
-fn can_get_metadata_json() {
-    let rocket = get_test_rocket();
-    let client = Client::tracked(rocket).expect("valid rocket instance");
-    let response = client
-        .get("/metadata/20180818-164043-7cdcde4b/json")
-        .dispatch();
+#[tokio::test]
+async fn can_get_metadata_json() {
+    let mut client = get_default_client();
+    let response = client.get("/metadata/20180818-164043-7cdcde4b/json").await;
 
-    assert_eq!(response.status(), Status::Ok);
-    assert_eq!(response.content_type(), Some(ContentType::JSON));
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.content_type(), mime::APPLICATION_JSON);
 
-    let body: Value = serde_json::from_str(&response.into_string().unwrap()).unwrap();
+    let body = response.to_json().await;
     validate_success("outpack", "metadata.json", &body);
 }
 
-#[test]
-fn can_get_metadata_text() {
-    let rocket = get_test_rocket();
-    let client = Client::tracked(rocket).expect("valid rocket instance");
-    let response = client
-        .get("/metadata/20180818-164043-7cdcde4b/text")
-        .dispatch();
+#[tokio::test]
+async fn can_get_metadata_text() {
+    let mut client = get_default_client();
+    let response = client.get("/metadata/20180818-164043-7cdcde4b/text").await;
 
-    assert_eq!(response.status(), Status::Ok);
-    assert_eq!(response.content_type(), Some(ContentType::Text));
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.content_type(), mime::TEXT_PLAIN_UTF_8);
 
     let expected = fs::File::open(Path::new(
         "tests/example/.outpack/metadata/20180818-164043-7cdcde4b",
     ))
     .unwrap();
-    let result: Value = serde_json::from_str(&response.into_string().unwrap()[..]).unwrap();
+
+    let result: Value = response.to_json().await;
     let expected: Value = serde_json::from_reader(expected).unwrap();
     assert_eq!(result, expected);
 }
 
-#[test]
-fn returns_404_if_packet_not_found() {
-    let rocket = get_test_rocket();
-    let client = Client::tracked(rocket).expect("valid rocket instance");
-    let response = client.get("/metadata/bad-id/json").dispatch();
+#[tokio::test]
+async fn returns_404_if_packet_not_found() {
+    let mut client = get_default_client();
+    let response = client.get("/metadata/bad-id/json").await;
 
-    assert_eq!(response.status(), Status::NotFound);
-    assert_eq!(response.content_type(), Some(ContentType::JSON));
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    assert_eq!(response.content_type(), mime::APPLICATION_JSON);
 
-    let body = serde_json::from_str(&response.into_string().unwrap()).unwrap();
+    let body = response.to_json().await;
     validate_error(&body, Some("packet with id 'bad-id' does not exist"))
 }
 
-#[test]
-fn can_get_file() {
-    let rocket = get_test_rocket();
-    let client = Client::tracked(rocket).expect("valid rocket instance");
+#[tokio::test]
+async fn can_get_file() {
+    let mut client = get_default_client();
     let hash = "sha256:b189579a9326f585d308304bd9e03326be5d395ac71b31df359ab8bac408d248";
-    let response = client.get(format!("/file/{}", hash)).dispatch();
+    let response = client.get(format!("/file/{}", hash)).await;
 
-    assert_eq!(response.status(), Status::Ok);
-    assert_eq!(response.content_type(), Some(ContentType::Binary));
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.content_type(), mime::APPLICATION_OCTET_STREAM);
 
     let path = Path::new("tests/example/.outpack/files/sha256/b1/")
         .join("89579a9326f585d308304bd9e03326be5d395ac71b31df359ab8bac408d248");
 
     let expected = fs::read(path).unwrap();
 
-    assert_eq!(response.into_bytes().unwrap(), expected);
+    assert_eq!(response.to_bytes().await, expected);
 }
 
-#[test]
-fn returns_404_if_file_not_found() {
-    let rocket = get_test_rocket();
-    let client = Client::tracked(rocket).expect("valid rocket instance");
+#[tokio::test]
+async fn returns_404_if_file_not_found() {
+    let mut client = get_default_client();
     let hash = "sha256:123456";
-    let response = client.get(format!("/file/{}", hash)).dispatch();
+    let response = client.get(format!("/file/{}", hash)).await;
 
-    assert_eq!(response.status(), Status::NotFound);
-    assert_eq!(response.content_type(), Some(ContentType::JSON));
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    assert_eq!(response.content_type(), mime::APPLICATION_JSON);
 
-    let body = serde_json::from_str(&response.into_string().unwrap()).unwrap();
+    let body = response.to_json().await;
     validate_error(&body, Some("hash 'sha256:123456' not found"))
 }
 
@@ -323,48 +395,50 @@ struct Ids {
     unpacked: bool,
 }
 
-#[test]
-fn can_get_missing_ids() {
-    let rocket = get_test_rocket();
-    let client = Client::tracked(rocket).expect("valid rocket instance");
+#[tokio::test]
+async fn can_get_missing_ids() {
+    let mut client = get_default_client();
     let response = client
-        .post("/packets/missing")
-        .json(&Ids {
-            ids: vec![
-                "20180818-164043-7cdcde4b".to_string(),
-                "20170818-164830-33e0ab01".to_string(),
-            ],
-            unpacked: false,
-        })
-        .dispatch();
+        .post_json(
+            "/packets/missing",
+            &Ids {
+                ids: vec![
+                    "20180818-164043-7cdcde4b".to_string(),
+                    "20170818-164830-33e0ab01".to_string(),
+                ],
+                unpacked: false,
+            },
+        )
+        .await;
 
-    assert_eq!(response.status(), Status::Ok);
-    assert_eq!(response.content_type(), Some(ContentType::JSON));
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.content_type(), mime::APPLICATION_JSON);
 
-    let body: Value = serde_json::from_str(&response.into_string().unwrap()).unwrap();
+    let body = response.to_json().await;
     validate_success("server", "ids.json", &body);
     let entries = body.get("data").unwrap().as_array().unwrap();
     assert_eq!(entries.len(), 0);
 }
 
-#[test]
-fn can_get_missing_unpacked_ids() {
-    let rocket = get_test_rocket();
-    let client = Client::tracked(rocket).expect("valid rocket instance");
+#[tokio::test]
+async fn can_get_missing_unpacked_ids() {
+    let mut client = get_default_client();
     let response = client
-        .post("/packets/missing")
-        .json(&Ids {
-            ids: vec![
-                "20170818-164847-7574883b".to_string(),
-                "20170818-164830-33e0ab02".to_string(),
-            ],
-            unpacked: true,
-        })
-        .dispatch();
-    assert_eq!(response.status(), Status::Ok);
-    assert_eq!(response.content_type(), Some(ContentType::JSON));
+        .post_json(
+            "/packets/missing",
+            &Ids {
+                ids: vec![
+                    "20170818-164847-7574883b".to_string(),
+                    "20170818-164830-33e0ab02".to_string(),
+                ],
+                unpacked: true,
+            },
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.content_type(), mime::APPLICATION_JSON);
 
-    let body: Value = serde_json::from_str(&response.into_string().unwrap()).unwrap();
+    let body = response.to_json().await;
     validate_success("server", "ids.json", &body);
     let entries = body.get("data").unwrap().as_array().unwrap();
     assert_eq!(entries.len(), 1);
@@ -374,35 +448,34 @@ fn can_get_missing_unpacked_ids() {
     );
 }
 
-#[test]
-fn missing_packets_propagates_errors() {
-    let rocket = get_test_rocket();
-    let client = Client::tracked(rocket).expect("valid rocket instance");
+#[tokio::test]
+async fn missing_packets_propagates_errors() {
+    let mut client = get_default_client();
     let response = client
-        .post("/packets/missing")
-        .json(&Ids {
-            ids: vec!["badid".to_string()],
-            unpacked: true,
-        })
-        .dispatch();
+        .post_json(
+            "/packets/missing",
+            &Ids {
+                ids: vec!["badid".to_string()],
+                unpacked: true,
+            },
+        )
+        .await;
 
-    let body: Value = serde_json::from_str(&response.into_string().unwrap()).unwrap();
+    let body = response.to_json().await;
     validate_error(&body, Some("Invalid packet id"));
 }
 
-#[test]
-fn missing_packets_validates_request_body() {
-    let rocket = get_test_rocket();
-    let client = Client::tracked(rocket).expect("valid rocket instance");
+#[tokio::test]
+async fn missing_packets_validates_request_body() {
+    let mut client = get_default_client();
     let response = client
-        .post("/packets/missing")
-        .header(ContentType::JSON)
-        .dispatch();
+        .post("/packets/missing", mime::APPLICATION_JSON, Body::empty())
+        .await;
 
-    assert_eq!(response.status(), Status::BadRequest);
-    assert_eq!(response.content_type(), Some(ContentType::JSON));
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(response.content_type(), mime::APPLICATION_JSON);
 
-    let body: Value = serde_json::from_str(&response.into_string().unwrap()).unwrap();
+    let body = response.to_json().await;
     validate_error(&body, Some("EOF while parsing a value at line 1 column 0"));
 }
 
@@ -411,26 +484,27 @@ struct Hashes {
     hashes: Vec<String>,
 }
 
-#[test]
-fn can_get_missing_files() {
-    let rocket = get_test_rocket();
-    let client = Client::tracked(rocket).expect("valid rocket instance");
+#[tokio::test]
+async fn can_get_missing_files() {
+    let mut client = get_default_client();
     let response = client
-        .post("/files/missing")
-        .json(&Hashes {
-            hashes: vec![
-                "sha256:b189579a9326f585d308304bd9e03326be5d395ac71b31df359ab8bac408d248"
-                    .to_string(),
-                "sha256:a189579a9326f585d308304bd9e03326be5d395ac71b31df359ab8bac408d247"
-                    .to_string(),
-            ],
-        })
-        .dispatch();
+        .post_json(
+            "/files/missing",
+            &Hashes {
+                hashes: vec![
+                    "sha256:b189579a9326f585d308304bd9e03326be5d395ac71b31df359ab8bac408d248"
+                        .to_string(),
+                    "sha256:a189579a9326f585d308304bd9e03326be5d395ac71b31df359ab8bac408d247"
+                        .to_string(),
+                ],
+            },
+        )
+        .await;
 
-    assert_eq!(response.status(), Status::Ok);
-    assert_eq!(response.content_type(), Some(ContentType::JSON));
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.content_type(), mime::APPLICATION_JSON);
 
-    let body: Value = serde_json::from_str(&response.into_string().unwrap()).unwrap();
+    let body = response.to_json().await;
     validate_success("server", "hashes.json", &body);
     let entries = body.get("data").unwrap().as_array().unwrap();
     assert_eq!(entries.len(), 1);
@@ -440,57 +514,56 @@ fn can_get_missing_files() {
     );
 }
 
-#[test]
-fn missing_files_propagates_errors() {
-    let rocket = get_test_rocket();
-    let client = Client::tracked(rocket).expect("valid rocket instance");
+#[tokio::test]
+async fn missing_files_propagates_errors() {
+    let mut client = get_default_client();
     let response = client
-        .post("/files/missing")
-        .json(&Hashes {
-            hashes: vec!["badhash".to_string()],
-        })
-        .dispatch();
+        .post_json(
+            "/files/missing",
+            &Hashes {
+                hashes: vec!["badhash".to_string()],
+            },
+        )
+        .await;
 
-    let body: Value = serde_json::from_str(&response.into_string().unwrap()).unwrap();
+    let body = response.to_json().await;
     validate_error(&body, Some("Invalid hash format 'badhash'"));
 }
 
-#[test]
-fn missing_files_validates_request_body() {
-    let rocket = get_test_rocket();
-    let client = Client::tracked(rocket).expect("valid rocket instance");
+#[tokio::test]
+async fn missing_files_validates_request_body() {
+    let mut client = get_default_client();
     let response = client
-        .post("/files/missing")
-        .header(ContentType::JSON)
-        .dispatch();
+        .post("/files/missing", mime::APPLICATION_JSON, Body::empty())
+        .await;
 
-    assert_eq!(response.status(), Status::BadRequest);
-    assert_eq!(response.content_type(), Some(ContentType::JSON));
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(response.content_type(), mime::APPLICATION_JSON);
 
-    let body: Value = serde_json::from_str(&response.into_string().unwrap()).unwrap();
+    let body = response.to_json().await;
     validate_error(&body, Some("EOF while parsing a value at line 1 column 0"));
 }
 
-#[test]
-fn can_post_file() {
-    let root = get_test_dir();
-    let rocket = outpack::api::api(&root).unwrap();
-    let client = Client::tracked(rocket).expect("valid rocket instance");
+#[tokio::test]
+async fn can_post_file() {
+    let mut client = get_default_client();
     let content = "test";
     let hash = format!(
         "sha256:{:x}",
         Sha256::new().chain_update(content).finalize()
     );
     let response = client
-        .post(format!("/file/{}", hash))
-        .body(content)
-        .header(ContentType::Binary)
-        .dispatch();
+        .post(
+            format!("/file/{}", hash),
+            mime::APPLICATION_OCTET_STREAM,
+            content,
+        )
+        .await;
 
-    assert_eq!(response.status(), Status::Ok);
-    assert_eq!(response.content_type(), Some(ContentType::JSON));
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.content_type(), mime::APPLICATION_JSON);
 
-    let body = serde_json::from_str(&response.into_string().unwrap()).unwrap();
+    let body = response.to_json().await;
     validate_success("server", "null-response.json", &body);
 
     body.get("data")
@@ -499,38 +572,32 @@ fn can_post_file() {
         .expect("Null data");
 
     // check file now exists on server
-    let get_file_response = client.get(format!("/file/{}", hash)).dispatch();
-    assert_eq!(get_file_response.status(), Status::Ok);
-    assert_eq!(get_file_response.into_string().unwrap(), "test");
+    let get_file_response = client.get(format!("/file/{}", hash)).await;
+    assert_eq!(get_file_response.status(), StatusCode::OK);
+    assert_eq!(get_file_response.to_string().await, "test");
 }
 
-#[test]
-fn file_post_handles_errors() {
-    let root = get_test_dir();
-    let rocket = outpack::api::api(&root).unwrap();
-    let client = Client::tracked(rocket).expect("valid rocket instance");
+#[tokio::test]
+async fn file_post_handles_errors() {
+    let mut client = get_default_client();
     let content = "test";
     let response = client
-        .post("/file/md5:bad4a54".to_string())
-        .body(content)
-        .header(ContentType::Binary)
-        .dispatch();
+        .post("/file/md5:bad4a54", mime::APPLICATION_OCTET_STREAM, content)
+        .await;
 
-    assert_eq!(response.status(), Status::BadRequest);
-    assert_eq!(response.content_type(), Some(ContentType::JSON));
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(response.content_type(), mime::APPLICATION_JSON);
 
-    let body = serde_json::from_str(&response.into_string().unwrap()).unwrap();
+    let body = response.to_json().await;
     validate_error(
         &body,
         Some("Expected hash 'md5:bad4a54' but found 'md5:098f6bcd4621d373cade4e832627b4f6'"),
     );
 }
 
-#[test]
-fn can_post_metadata() {
-    let root = get_test_dir();
-    let rocket = outpack::api::api(&root).unwrap();
-    let client = Client::tracked(rocket).expect("valid rocket instance");
+#[tokio::test]
+async fn can_post_metadata() {
+    let mut client = get_default_client();
     let content = r#"{
                              "schema_version": "0.0.1",
                               "name": "computed-resource",
@@ -551,15 +618,13 @@ fn can_post_metadata() {
         Sha256::new().chain_update(content).finalize()
     );
     let response = client
-        .post(format!("/packet/{}", hash))
-        .body(content)
-        .header(ContentType::Text)
-        .dispatch();
+        .post(format!("/packet/{}", hash), mime::TEXT_PLAIN_UTF_8, content)
+        .await;
 
-    assert_eq!(response.status(), Status::Ok);
-    assert_eq!(response.content_type(), Some(ContentType::JSON));
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.content_type(), mime::APPLICATION_JSON);
 
-    let body = serde_json::from_str(&response.into_string().unwrap()).unwrap();
+    let body = response.to_json().await;
     validate_success("server", "null-response.json", &body);
 
     body.get("data")
@@ -568,43 +633,90 @@ fn can_post_metadata() {
         .expect("Null data");
 
     // check packet now exists on server
-    let get_metadata_response = client
-        .get("/metadata/20230427-150828-68772cee/json")
-        .dispatch();
-    assert_eq!(get_metadata_response.status(), Status::Ok);
+    let get_metadata_response = client.get("/metadata/20230427-150828-68772cee/json").await;
+    assert_eq!(get_metadata_response.status(), StatusCode::OK);
 }
 
-#[test]
-fn catches_arbitrary_404() {
-    let rocket = get_test_rocket();
-    let client = Client::tracked(rocket).expect("valid rocket instance");
-    let response = client.get("/badurl").dispatch();
+#[tokio::test]
+async fn catches_arbitrary_404() {
+    let mut client = get_default_client();
+    let response = client.get("/badurl").await;
 
-    assert_eq!(response.status(), Status::NotFound);
-    assert_eq!(response.content_type(), Some(ContentType::JSON));
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    assert_eq!(response.content_type(), mime::APPLICATION_JSON);
 
-    let body = serde_json::from_str(&response.into_string().unwrap()).unwrap();
+    let body = response.to_json().await;
     validate_error(&body, Some("This route does not exist"));
 }
 
-#[test]
-fn exposes_metrics_endpoint() {
-    let rocket = get_test_rocket();
-    let client = Client::tracked(rocket).expect("valid rocket instance");
+#[tokio::test]
+async fn exposes_metrics_endpoint() {
+    let mut client = get_default_client();
 
     // Send at least one arbitrary request first so we don't get empty metrics.
-    client.get("/").dispatch();
+    client.get("/").await;
 
-    let response = client.get("/metrics").dispatch();
+    let response = client.get("/metrics").await;
 
-    assert_eq!(response.status(), Status::Ok);
-    assert_eq!(response.content_type(), Some(ContentType::Text));
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.content_type(), "text/plain; version=0.0.4");
 
     assert!(response
-        .into_string()
-        .unwrap()
+        .to_string()
+        .await
         .lines()
-        .any(|line| line.starts_with("rocket_http_requests_total")));
+        .any(|line| line.starts_with("http_requests_total")));
+}
+
+#[tokio::test]
+async fn generates_request_id() {
+    let mut client = get_default_client();
+    let response = client.get("/").await;
+    assert!(!response.headers()["x-request-id"].is_empty());
+}
+
+#[tokio::test]
+async fn propagates_request_id() {
+    let mut client = get_default_client();
+    let request = Request::get("/")
+        .header("x-request-id", "foobar123")
+        .body(Body::empty())
+        .unwrap();
+    let response = client.request(request).await;
+    assert_eq!(response.headers()["x-request-id"], "foobar123");
+}
+
+#[tokio::test]
+async fn request_id_is_logged() {
+    // tracing has a pretty obscure bug when exactly one subscriber exists, but other threads are
+    // calling trace macros without a subscriber. We can work around it by creating a dummy
+    // subscriber in the background. We need to assign it to a variable to ensure it does not get
+    // dropped and persists until the end of the test.
+    // See https://github.com/tokio-rs/tracing/issues/2874
+    let _dont_drop_me = tracing::Dispatch::new(tracing::subscriber::NoSubscriber::new());
+
+    use tracing_mock::expect;
+    let (collector, handle) = tracing_mock::subscriber::mock()
+        .new_span(
+            expect::span()
+                .named("request")
+                .with_field(expect::field("request_id").with_value(&"foobar123")),
+        )
+        .run_with_handle();
+
+    let f = async {
+        let mut client = get_default_client();
+        let request = Request::get("/")
+            .header("x-request-id", "foobar123")
+            .body(Body::empty())
+            .unwrap();
+
+        client.request(request).await
+    };
+
+    f.with_subscriber(collector).await;
+
+    handle.assert_finished();
 }
 
 fn validate_success(schema_group: &str, schema_name: &str, instance: &Value) {
@@ -624,7 +736,7 @@ fn validate_error(instance: &Value, message: Option<&str>) {
     let status = instance.get("status").expect("Status property present");
     assert_eq!(status, "failure");
 
-    if message.is_some() {
+    if let Some(message) = message {
         let err = instance
             .get("errors")
             .expect("Status property present")
@@ -636,7 +748,7 @@ fn validate_error(instance: &Value, message: Option<&str>) {
             .expect("Error detail")
             .to_string();
 
-        assert!(err.contains(message.unwrap()), "Error was: {}", err);
+        assert!(err.contains(message), "Error was: {}", err);
     }
 }
 
