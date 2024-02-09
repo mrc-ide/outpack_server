@@ -204,14 +204,14 @@ pub fn preflight(root: &Path) -> anyhow::Result<()> {
 }
 
 fn make_request_span(request: &axum::extract::Request) -> tracing::span::Span {
-    let request_id = &request.headers()["x-request-id"];
+    let request_id = String::from_utf8_lossy(request.headers()["x-request-id"].as_bytes());
     tracing::span!(
         tracing::Level::DEBUG,
         "request",
         method = tracing::field::display(request.method()),
         uri = tracing::field::display(request.uri()),
         version = tracing::field::debug(request.version()),
-        request_id = tracing::field::debug(request_id)
+        request_id = tracing::field::display(request_id)
     )
 }
 

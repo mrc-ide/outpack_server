@@ -717,7 +717,10 @@ async fn request_id_is_logged() {
 
     let storage = storage.lock();
     let span = storage.scan_spans().single(&name(eq("request")));
-    assert!(span.value("request_id").unwrap().is_debug(&"foobar123"));
+    assert!(span
+        .value("request_id")
+        .unwrap()
+        .is_debug(&tracing::field::display("foobar123")));
     span.scan_events()
         .single(&message(eq("started processing request")));
     span.scan_events()
