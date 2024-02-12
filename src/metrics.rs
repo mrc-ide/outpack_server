@@ -117,6 +117,13 @@ pub struct HttpMetrics {
     requests_in_flight: IntGaugeVec,
 }
 
+// The type returned by `HttpMetrics::layer()`. Unfortunately it is a might of a mouthful.
+pub type HttpMetricsLayer = axum::middleware::FromFnLayer<
+    fn(State<HttpMetrics>, Request, Next) -> BoxFuture<'static, Response>,
+    HttpMetrics,
+    (State<HttpMetrics>, Request),
+>;
+
 impl HttpMetrics {
     /// Create and register HTTP metrics.
     ///
@@ -130,7 +137,7 @@ impl HttpMetrics {
     }
 
     pub fn new() -> HttpMetrics {
-        let metrics = HttpMetrics {
+        HttpMetrics {
             requests_total: IntCounterVec::new(
                 Opts::new("requests_total", "Total number of HTTP requests").namespace("http"),
                 &["endpoint", "method", "status"],
@@ -156,19 +163,11 @@ impl HttpMetrics {
                 &["endpoint", "method"],
             )
             .unwrap(),
-        };
-
-        metrics
+        }
     }
 
     /// Create a `Layer` that can be added to an Axum router to record request metrics.
-    pub fn layer(
-        &self,
-    ) -> axum::middleware::FromFnLayer<
-        fn(State<HttpMetrics>, Request, Next) -> BoxFuture<'static, Response>,
-        HttpMetrics,
-        (State<HttpMetrics>, Request),
-    > {
+    pub fn layer(&self) -> HttpMetricsLayer {
         axum::middleware::from_fn_with_state(self.clone(), |State(metrics), request, next| {
             metrics.track(request, next).boxed()
         })
