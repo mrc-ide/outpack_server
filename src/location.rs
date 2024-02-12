@@ -118,10 +118,7 @@ mod tests {
         let entry_a = entries_a.first().unwrap();
         let loc_b = root.join(".outpack/location/local");
         let entries_b = read_location(loc_b.clone()).unwrap();
-        assert!(entries_b
-            .iter()
-            .find(|e| e.packet == entry_a.packet)
-            .is_none());
+        assert!(!entries_b.iter().any(|e| e.packet == entry_a.packet));
         let now = SystemTime::now();
         mark_packet_known(
             &entry_a.packet,

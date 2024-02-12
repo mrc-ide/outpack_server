@@ -158,7 +158,6 @@ pub fn validate_hash_file(path: &Path, expected: &str) -> Result<(), HashError> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile;
 
     #[test]
     fn can_deparse_hash_algorithm() {
@@ -274,7 +273,7 @@ mod tests {
     #[test]
     fn can_validate_hash() {
         let expect_md5 = "md5:81dc9bdb52d04dc20036dbd8313ed055";
-        assert_eq!(validate_hash_data(b"1234", &expect_md5), Ok(()));
+        assert_eq!(validate_hash_data(b"1234", expect_md5), Ok(()));
         assert_eq!(
             validate_hash_data(b"12345", expect_md5),
             Err(HashError::new(

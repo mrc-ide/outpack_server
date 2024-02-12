@@ -25,7 +25,7 @@ jobs:
         with:
           toolchain: stable
       - name: Lint
-        run: cargo clippy -- -D warnings
+        run: cargo clippy --tests -- -D warnings
       - name: Format check
         run: cargo fmt --check
       - name: Build (debug)

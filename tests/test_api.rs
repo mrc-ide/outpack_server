@@ -7,7 +7,7 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::fs::File;
-use std::io::Read;
+
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tar::Archive;
@@ -297,13 +297,10 @@ fn can_get_file() {
 
     let path = Path::new("tests/example/.outpack/files/sha256/b1/")
         .join("89579a9326f585d308304bd9e03326be5d395ac71b31df359ab8bac408d248");
-    let mut file = fs::File::open(&path).unwrap();
-    let metadata = fs::metadata(&path).unwrap();
-    let mut buffer = vec![0; metadata.len() as usize];
 
-    file.read(&mut buffer).unwrap();
+    let expected = fs::read(path).unwrap();
 
-    assert_eq!(response.into_bytes().unwrap(), buffer);
+    assert_eq!(response.into_bytes().unwrap(), expected);
 }
 
 #[test]
@@ -514,7 +511,7 @@ fn file_post_handles_errors() {
     let client = Client::tracked(rocket).expect("valid rocket instance");
     let content = "test";
     let response = client
-        .post(format!("/file/md5:bad4a54"))
+        .post("/file/md5:bad4a54".to_string())
         .body(content)
         .header(ContentType::Binary)
         .dispatch();
@@ -633,7 +630,7 @@ fn validate_error(instance: &Value, message: Option<&str>) {
             .expect("Status property present")
             .as_array()
             .unwrap()
-            .get(0)
+            .first()
             .expect("First error")
             .get("detail")
             .expect("Error detail")
@@ -644,14 +641,14 @@ fn validate_error(instance: &Value, message: Option<&str>) {
 }
 
 fn assert_valid(instance: &Value, compiled: &JSONSchema) {
-    let result = compiled.validate(&instance);
+    let result = compiled.validate(instance);
     if let Err(errors) = result {
         for error in errors {
             println!("Validation error: {}", error);
             println!("Instance path: {}", error.instance_path);
         }
     }
-    assert!(compiled.is_valid(&instance));
+    assert!(compiled.is_valid(instance));
 }
 
 fn get_schema(schema_group: &str, schema_name: &str) -> JSONSchema {
@@ -685,6 +682,6 @@ impl jsonschema::SchemaResolver for LocalSchemaResolver {
             .join(original_reference);
         let schema_as_string = fs::read_to_string(schema_path).expect("Schema file");
         let json_schema = serde_json::from_str(&schema_as_string).expect("Schema is valid json");
-        return Ok(Arc::new(json_schema));
+        Ok(Arc::new(json_schema))
     }
 }
