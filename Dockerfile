@@ -9,7 +9,6 @@ RUN  apt-get -yq update && \
      apt-get -yqq install openssh-client git
 
 COPY --from=builder /usr/local/cargo/bin/* /usr/local/bin/
-COPY --from=builder /usr/src/outpack_server/Rocket.toml .
 COPY start-with-wait /usr/local/bin
 EXPOSE 8000
 ENTRYPOINT ["start-with-wait"]

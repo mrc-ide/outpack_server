@@ -28,8 +28,7 @@ fn main() -> anyhow::Result<()> {
         }
 
         Command::StartServer { root } => {
-            let server = outpack::api::api(&root)?;
-            rocket::execute(server.launch())?;
+            outpack::api::serve(&root)?;
         }
     }
     Ok(())

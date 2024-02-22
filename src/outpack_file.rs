@@ -1,11 +1,10 @@
-use rocket::http::ContentType;
-use rocket::tokio::fs::File;
+use axum::body::Body;
+use axum::response::Response;
 use std::io;
 use std::io::ErrorKind;
 use std::path::Path;
-
-use rocket::response::{Responder, Result};
-use rocket::Request;
+use tokio::fs::File;
+use tokio_util::io::ReaderStream;
 
 pub struct OutpackFile {
     hash: String,
@@ -28,18 +27,17 @@ impl OutpackFile {
     }
 }
 
-impl<'r> Responder<'r, 'static> for OutpackFile {
-    fn respond_to(self, request: &'r Request<'_>) -> Result<'static> {
-        use rocket::http::hyper::header::*;
-
-        let content_type = ContentType::Binary.to_string();
+impl axum::response::IntoResponse for OutpackFile {
+    fn into_response(self) -> Response {
+        use axum::http::header::*;
+        let stream = ReaderStream::new(self.file);
         let content_disposition = format!("attachment; filename=\"{}\"", self.hash);
 
-        let mut response = self.file.respond_to(request)?;
-        response.set_raw_header(CONTENT_TYPE.as_str(), content_type);
-        response.set_raw_header(CONTENT_DISPOSITION.as_str(), content_disposition);
-        response.set_raw_header(CONTENT_LENGTH.as_str(), self.size.to_string());
-
-        Ok(response)
+        Response::builder()
+            .header(CONTENT_TYPE, mime::APPLICATION_OCTET_STREAM.as_ref())
+            .header(CONTENT_DISPOSITION, content_disposition)
+            .header(CONTENT_LENGTH, self.size)
+            .body(Body::from_stream(stream))
+            .unwrap()
     }
 }
