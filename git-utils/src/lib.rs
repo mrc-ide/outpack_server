@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
 
-use git2::{Branches, BranchType, Commit, Repository};
+use git2::{Branches, BranchType, Commit, Repository, Signature};
 use git2::build::RepoBuilder;
 use tempdir::TempDir;
 
@@ -76,7 +76,7 @@ fn create_file(repo_path: &Path, file_name: &str) {
 }
 
 fn create_initial_commit(repo: &Repository) {
-    let signature = repo.signature().unwrap();
+    let signature = Signature::now("Test User", "test.user@example.com").unwrap();
     let tree_id = {
         let mut index = repo.index().unwrap();
         index.write_tree().unwrap()
@@ -93,6 +93,7 @@ fn create_initial_commit(repo: &Repository) {
         .unwrap();
 }
 
+
 fn git_add_all(repo: &Repository) {
     let mut index = repo.index().unwrap();
     index
@@ -104,7 +105,7 @@ fn git_add_all(repo: &Repository) {
 fn git_commit(repo: &Repository, message: &str) {
     let mut index = repo.index().unwrap();
     let oid = index.write_tree().unwrap();
-    let signature = repo.signature().unwrap();
+    let signature = Signature::now("Test User", "test.user@example.com").unwrap();
     let parent_commit = repo.head().unwrap().peel_to_commit().unwrap();
     let tree = repo.find_tree(oid).unwrap();
     repo.commit(
