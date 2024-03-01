@@ -35,6 +35,7 @@ tokio-util = { version = "0.7.10", features = ["io"] }
 futures = "0.3.30"
 tower = "0.4.13"
 mime = "0.3.17"
+git2 = "0.18.2"
 
 [dev-dependencies]
 assert_cmd = "2.0.6"
@@ -46,6 +47,7 @@ tar = "0.4.38"
 chrono = "0.4.33"
 rand = "0.8.5"
 tracing-capture = "0.1.0"
+git-utils = { path = "git-utils" }
 
 [features]
-python = [ "dep:pyo3" ]
+python = ["dep:pyo3"]

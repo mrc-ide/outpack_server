@@ -1,8 +1,9 @@
+use std::io;
+use std::io::ErrorKind;
+
 use axum::extract::rejection::JsonRejection;
 use axum::http::StatusCode;
 use serde::{Deserialize, Serialize};
-use std::io;
-use std::io::ErrorKind;
 
 use crate::hash;
 
@@ -51,6 +52,16 @@ impl From<JsonRejection> for OutpackError {
             error: e.to_string(),
             detail: e.body_text(),
             kind: Some(std::io::ErrorKind::InvalidInput),
+        }
+    }
+}
+
+impl From<git2::Error> for OutpackError {
+    fn from(e: git2::Error) -> Self {
+        OutpackError {
+            error: e.message().to_string(),
+            detail: format!("{:?}", e.code()),
+            kind: Some(std::io::ErrorKind::Other),
         }
     }
 }

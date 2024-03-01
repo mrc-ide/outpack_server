@@ -7,6 +7,7 @@ pub mod index;
 pub mod init;
 pub mod query;
 
+mod git;
 mod hash;
 mod location;
 mod metadata;
