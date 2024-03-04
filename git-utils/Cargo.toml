@@ -6,5 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-git2 = "0.18.2"
+git2 = { version = "0.18.2" }
 tempdir = "0.3.7"
+
+[features]
+openssl-vendored = ["git2/vendored-openssl"]

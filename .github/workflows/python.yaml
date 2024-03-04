@@ -60,13 +60,13 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - {os: ubuntu-latest,  target: 'x86_64'}
-          - {os: ubuntu-latest,  target: 'x86'}
-          - {os: ubuntu-latest,  target: 'aarch64'}
-          - {os: windows-latest, target: 'x64'}
-          - {os: windows-latest, target: 'x86'}
-          - {os: macos-latest,   target: 'x86_64'}
-          - {os: macos-latest,   target: 'aarch64'}
+          - { os: ubuntu-latest,  target: 'x86_64' }
+          - { os: ubuntu-latest,  target: 'x86' }
+          - { os: ubuntu-latest,  target: 'aarch64' }
+          - { os: windows-latest, target: 'x64' }
+          - { os: windows-latest, target: 'x86' }
+          - { os: macos-latest,   target: 'x86_64' }
+          - { os: macos-latest,   target: 'aarch64' }
 
     runs-on: ${{ matrix.config.os }}
     name: Build wheels for ${{ matrix.config.os }} (${{ matrix.config.target }})
@@ -82,8 +82,19 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.config.target }}
-          args: --release --out dist
+          args: --release --out dist --features openssl-vendored
           manylinux: manylinux2014
+          before-script-linux: |
+            # If we're running on RHEL centos, install needed packages.
+            if command -v yum &> /dev/null; then
+              yum update -y && yum install -y perl-core libatomic
+            
+              # If we're running on i686 we need to symlink libatomic
+              # in order to build openssl with -latomic flag.
+              if [[ ! -d "/usr/lib64" ]]; then
+                ln -s /usr/lib/libatomic.so.1 /usr/lib/libatomic.so
+              fi
+            fi
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -107,10 +118,10 @@ jobs:
       # This permission is needed for the workflow to authenticate against PyPI
       id-token: write
     steps:
-    - name: Download all the dists
-      uses: actions/download-artifact@v3
-      with:
-        name: python-artifacts
-        path: dist/
-    - name: Publish distribution to PyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Download all the dists
+        uses: actions/download-artifact@v3
+        with:
+          name: python-artifacts
+          path: dist/
+      - name: Publish distribution to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
