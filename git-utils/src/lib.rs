@@ -38,11 +38,12 @@ pub fn initialise_git_repo(path: Option<&PathBuf>) -> TestGit {
     git_add_all(&remote);
     git_commit(&remote, "Second commit");
 
+    let default_branch = git_branch(&remote);
     git_checkout(&remote, "other", true);
     create_file(&remote_path, "new_file3");
     git_add_all(&remote);
     git_commit(&remote, "Third commit");
-    git_checkout(&remote, "main", false);
+    git_checkout(&remote, &default_branch, false);
 
     TestGit {
         dir: tmp_dir,
@@ -131,6 +132,12 @@ pub fn git_get_latest_commit<'a>(repo: &'a Repository, reference: &str) -> Commi
         .unwrap()
         .peel_to_commit()
         .unwrap()
+}
+
+fn git_branch(repo: &Repository) -> String {
+    let head = repo.head().unwrap();
+    let branch_name = head.shorthand().unwrap();
+    branch_name.to_string()
 }
 
 fn git_checkout(repo: &Repository, branch_name: &str, new_branch: bool) {
