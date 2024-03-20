@@ -37,7 +37,7 @@ mod tests {
         let initial_branches = git_remote_branches(&test_git.local);
         assert_eq!(initial_branches.count(), 2); // HEAD and main
 
-        git_fetch(&test_git.dir.join("local")).unwrap();
+        git_fetch(&test_git.dir.path().join("local")).unwrap();
 
         let post_fetch_ref = git_get_latest_commit(&test_git.local, "refs/remotes/origin/HEAD");
         assert_eq!(

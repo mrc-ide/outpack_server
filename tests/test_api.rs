@@ -734,7 +734,7 @@ async fn request_id_is_logged() {
 async fn can_fetch_git() {
     let test_dir = get_test_dir();
     let test_git = initialise_git_repo(Some(&test_dir));
-    let mut client = TestClient::new(test_git.dir.join("local"));
+    let mut client = TestClient::new(test_git.dir.path().join("local"));
 
     let remote_ref = git_get_latest_commit(&test_git.remote, "HEAD");
     let initial_ref = git_get_latest_commit(&test_git.local, "refs/remotes/origin/HEAD");

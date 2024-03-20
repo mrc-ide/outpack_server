@@ -1,5 +1,3 @@
-use std::fs::File;
-use std::io::prelude::*;
 use std::path::{Path, PathBuf};
 
 use git2::{Branches, BranchType, Commit, Repository, Signature};
@@ -7,7 +5,7 @@ use git2::build::RepoBuilder;
 use tempdir::TempDir;
 
 pub struct TestGit {
-    pub dir: PathBuf,
+    pub dir: TempDir,
     pub remote: Repository,
     pub local: Repository,
 }
@@ -17,9 +15,9 @@ pub struct TestGit {
 // local - 2 commits, initial, first commit
 // So that if we fetch on local then it should know about the second file
 pub fn initialise_git_repo(path: Option<&PathBuf>) -> TestGit {
-    let tmp_dir = TempDir::new("repo").expect("Temp dir created").into_path();
-    let remote_path = tmp_dir.join("remote");
-    let local_path = tmp_dir.join("local");
+    let tmp_dir = TempDir::new("repo").expect("Temp dir created");
+    let remote_path = tmp_dir.path().join("remote");
+    let local_path = tmp_dir.path().join("local");
     match path {
         Some(p) => copy_recursively(p, &remote_path),
         None => std::fs::create_dir(&remote_path),
@@ -72,8 +70,7 @@ pub fn copy_recursively(
 }
 
 fn create_file(repo_path: &Path, file_name: &str) {
-    let mut file = File::create(repo_path.join(file_name)).unwrap();
-    file.write_all(b"File contents").unwrap();
+    std::fs::write(repo_path.join(file_name), b"File contents").unwrap();
 }
 
 fn create_initial_commit(repo: &Repository) {
