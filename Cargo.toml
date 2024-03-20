@@ -47,7 +47,7 @@ tar = "0.4.38"
 chrono = "0.4.33"
 rand = "0.8.5"
 tracing-capture = "0.1.0"
-git-utils = { path = "git-utils" }
+test-utils = { path = "test-utils" }
 
 [features]
 python = ["dep:pyo3"]

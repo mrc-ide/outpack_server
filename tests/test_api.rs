@@ -9,7 +9,6 @@ use axum::extract::Request;
 use axum::http::header::CONTENT_TYPE;
 use axum::http::StatusCode;
 use axum::response::Response;
-use git_utils::{git_get_latest_commit, git_remote_branches, initialise_git_repo};
 use jsonschema::{Draft, JSONSchema, SchemaResolverError};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -22,6 +21,8 @@ use tracing::instrument::WithSubscriber;
 use tracing_capture::{CaptureLayer, SharedStorage};
 use tracing_subscriber::{layer::SubscriberExt, Registry};
 use url::Url;
+
+use test_utils::{git_get_latest_commit, git_remote_branches, initialise_git_repo};
 
 static INIT: Once = Once::new();
 
@@ -82,7 +83,7 @@ impl TestClient {
             mime::APPLICATION_JSON,
             serde_json::to_vec(data).unwrap(),
         )
-        .await
+            .await
     }
 }
 
@@ -344,7 +345,7 @@ async fn can_get_metadata_text() {
     let expected = fs::File::open(Path::new(
         "tests/example/.outpack/metadata/20180818-164043-7cdcde4b",
     ))
-    .unwrap();
+        .unwrap();
 
     let result: Value = response.to_json().await;
     let expected: Value = serde_json::from_reader(expected).unwrap();

@@ -1,4 +1,4 @@
-# git-utils
+# test-utils
 
 This exists as a separate crate so that we can use it for test setup of both integration and unit tests in the main
 outpack crate.

@@ -19,7 +19,7 @@ pub fn git_fetch(root: &Path) -> Result<(), git2::Error> {
 
 #[cfg(test)]
 mod tests {
-    use git_utils::{git_get_latest_commit, git_remote_branches, initialise_git_repo};
+    use test_utils::{git_get_latest_commit, git_remote_branches, initialise_git_repo};
 
     use super::*;
 
