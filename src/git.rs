@@ -4,16 +4,10 @@ use git2::Repository;
 
 pub fn git_fetch(root: &Path) -> Result<(), git2::Error> {
     let repo = Repository::open(root)?;
-    let mut remote = repo
-        .find_remote("origin")
-        .expect("Failed to find remote 'origin'");
-    let ref_specs_iter = remote
-        .fetch_refspecs()
-        .expect("Failed to get remotes ref specs");
+    let mut remote = repo.find_remote("origin")?;
+    let ref_specs_iter = remote.fetch_refspecs()?;
     let ref_specs: Vec<&str> = ref_specs_iter.iter().map(|spec| spec.unwrap()).collect();
-    remote
-        .fetch(&ref_specs, None, None)
-        .expect("Failed to fetch");
+    remote.fetch(&ref_specs, None, None)?;
     Ok(())
 }
 

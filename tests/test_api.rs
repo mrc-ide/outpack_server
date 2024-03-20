@@ -83,7 +83,7 @@ impl TestClient {
             mime::APPLICATION_JSON,
             serde_json::to_vec(data).unwrap(),
         )
-            .await
+        .await
     }
 }
 
@@ -345,7 +345,7 @@ async fn can_get_metadata_text() {
     let expected = fs::File::open(Path::new(
         "tests/example/.outpack/metadata/20180818-164043-7cdcde4b",
     ))
-        .unwrap();
+    .unwrap();
 
     let result: Value = response.to_json().await;
     let expected: Value = serde_json::from_reader(expected).unwrap();
