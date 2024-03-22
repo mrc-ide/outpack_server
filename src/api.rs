@@ -1,3 +1,7 @@
+use std::any::Any;
+use std::io::ErrorKind;
+use std::path::{Path, PathBuf};
+
 use anyhow::{bail, Context};
 use axum::extract::rejection::JsonRejection;
 use axum::extract::{self, Query, State};
@@ -5,23 +9,19 @@ use axum::response::IntoResponse;
 use axum::response::Response;
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
-use std::any::Any;
-use std::io::ErrorKind;
-use std::path::{Path, PathBuf};
 use tower_http::catch_panic::CatchPanicLayer;
 use tower_http::request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer};
 use tower_http::trace::TraceLayer;
 
-use crate::config;
 use crate::hash;
 use crate::location;
 use crate::metadata;
 use crate::metrics;
-use crate::store;
-
 use crate::outpack_file::OutpackFile;
 use crate::responses::{OutpackError, OutpackSuccess};
+use crate::store;
 use crate::upload::{Upload, UploadLayer};
+use crate::{config, git};
 
 type OutpackResult<T> = Result<OutpackSuccess<T>, OutpackError>;
 
@@ -68,6 +68,7 @@ async fn list_location_metadata(
 struct KnownSince {
     known_since: Option<f64>,
 }
+
 async fn get_metadata_since(
     root: State<PathBuf>,
     query: Query<KnownSince>,
@@ -156,6 +157,12 @@ async fn add_packet(
         .map(OutpackSuccess::from)
 }
 
+async fn git_fetch(root: State<PathBuf>) -> Result<OutpackSuccess<()>, OutpackError> {
+    git::git_fetch(&root)
+        .map_err(OutpackError::from)
+        .map(OutpackSuccess::from)
+}
+
 #[derive(Serialize, Deserialize)]
 struct Ids {
     ids: Vec<String>,
@@ -236,6 +243,7 @@ pub fn api(root: &Path) -> anyhow::Result<Router> {
         .route("/packit/metadata", get(get_metadata_since))
         .route("/file/:hash", get(get_file).post(add_file))
         .route("/packet/:hash", post(add_packet))
+        .route("/git/fetch", post(git_fetch))
         .route("/metrics", get(|| async move { metrics::render(registry) }))
         .fallback(not_found)
         .with_state(root.to_owned());

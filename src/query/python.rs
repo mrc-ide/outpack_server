@@ -97,7 +97,7 @@ enum TestOperator {
 }
 
 #[pyfunction]
-fn parse_query<'a>(py: Python, input: &'a str) -> PyResult<PyObject> {
+fn parse_query(py: Python, input: &str) -> PyResult<PyObject> {
     convert_query(py, crate::query::parse_query(input)?)
 }
 

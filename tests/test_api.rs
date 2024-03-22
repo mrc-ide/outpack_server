@@ -1,3 +1,9 @@
+use std::fs;
+use std::fs::File;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::sync::Once;
+
 use axum::body::Body;
 use axum::extract::Request;
 use axum::http::header::CONTENT_TYPE;
@@ -7,11 +13,6 @@ use jsonschema::{Draft, JSONSchema, SchemaResolverError};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
-use std::fs;
-use std::fs::File;
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::sync::Once;
 use tar::Archive;
 use tar::Builder;
 use tempdir::TempDir;
@@ -20,6 +21,8 @@ use tracing::instrument::WithSubscriber;
 use tracing_capture::{CaptureLayer, SharedStorage};
 use tracing_subscriber::{layer::SubscriberExt, Registry};
 use url::Url;
+
+use test_utils::{git_get_latest_commit, git_remote_branches, initialise_git_repo};
 
 static INIT: Once = Once::new();
 
@@ -725,6 +728,46 @@ async fn request_id_is_logged() {
         .single(&message(eq("started processing request")));
     span.scan_events()
         .single(&message(eq("finished processing request")));
+}
+
+#[tokio::test]
+async fn can_fetch_git() {
+    let test_dir = get_test_dir();
+    let test_git = initialise_git_repo(Some(&test_dir));
+    let mut client = TestClient::new(test_git.dir.path().join("local"));
+
+    let remote_ref = git_get_latest_commit(&test_git.remote, "HEAD");
+    let initial_ref = git_get_latest_commit(&test_git.local, "refs/remotes/origin/HEAD");
+    assert_ne!(
+        initial_ref.message().unwrap(),
+        remote_ref.message().unwrap()
+    );
+
+    let initial_branches = git_remote_branches(&test_git.local);
+    assert_eq!(initial_branches.count(), 2); // HEAD and main
+
+    let response = client
+        .post("/git/fetch", mime::APPLICATION_JSON, Body::empty())
+        .await;
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.content_type(), mime::APPLICATION_JSON);
+
+    let body = response.to_json().await;
+    validate_success("server", "null-response.json", &body);
+
+    body.get("data")
+        .expect("Data property present")
+        .as_null()
+        .expect("Null data");
+
+    let post_fetch_ref = git_get_latest_commit(&test_git.local, "refs/remotes/origin/HEAD");
+    assert_eq!(
+        post_fetch_ref.message().unwrap(),
+        remote_ref.message().unwrap()
+    );
+
+    let post_fetch_branches = git_remote_branches(&test_git.local);
+    assert_eq!(post_fetch_branches.count(), 3); // HEAD, main and other
 }
 
 fn validate_success(schema_group: &str, schema_name: &str, instance: &Value) {
