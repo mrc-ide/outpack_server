@@ -295,7 +295,7 @@ The metadata should be written directly to the request body.
 ## Python bindings
 
 This crate provides Python bindings for its query parser. See
-[README.python.md] for details.
+[README.python.md](README.python.md) for details.
 
 ## Releasing
 
