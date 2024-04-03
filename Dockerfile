@@ -1,7 +1,7 @@
 FROM rust:latest as builder
 WORKDIR /usr/src/outpack_server
 COPY . .
-RUN cargo install --path .
+RUN cargo install --locked --path .
 
 FROM debian:bookworm-slim
 
