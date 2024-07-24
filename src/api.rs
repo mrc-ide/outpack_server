@@ -1,4 +1,5 @@
 use std::any::Any;
+use std::net::SocketAddr;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
@@ -257,7 +258,7 @@ pub fn api(root: &Path) -> anyhow::Result<Router> {
         .layer(http_metrics.layer()))
 }
 
-pub fn serve(root: &Path) -> anyhow::Result<()> {
+pub fn serve(root: &Path, addr: &SocketAddr) -> anyhow::Result<()> {
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::TRACE)
         .init();
@@ -268,7 +269,7 @@ pub fn serve(root: &Path) -> anyhow::Result<()> {
         .enable_all()
         .build()?
         .block_on(async {
-            let listener = tokio::net::TcpListener::bind("0.0.0.0:8000").await?;
+            let listener = tokio::net::TcpListener::bind(addr).await?;
             tracing::info!("listening on {}", listener.local_addr().unwrap());
             axum::serve(listener, app).await?;
             Ok(())

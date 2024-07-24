@@ -1,3 +1,4 @@
+use std::net::SocketAddr;
 use std::path::PathBuf;
 
 #[derive(clap::Parser, Debug)]
@@ -39,5 +40,8 @@ pub enum Command {
     StartServer {
         #[arg(short, long)]
         root: PathBuf,
+
+        #[arg(long, default_value = "0.0.0.0:8000")]
+        listen: SocketAddr,
     },
 }

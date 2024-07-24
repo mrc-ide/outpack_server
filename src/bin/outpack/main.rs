@@ -27,8 +27,8 @@ fn main() -> anyhow::Result<()> {
             println!("{:?}", result);
         }
 
-        Command::StartServer { root } => {
-            outpack::api::serve(&root)?;
+        Command::StartServer { root, listen } => {
+            outpack::api::serve(&root, &listen)?;
         }
     }
     Ok(())
