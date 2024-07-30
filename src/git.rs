@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use git2::{BranchType, Repository};
+use git2::{Branch, BranchType, Repository};
 use serde::{Deserialize, Serialize};
 
 pub fn git_fetch(root: &Path) -> Result<(), git2::Error> {
@@ -14,28 +14,31 @@ pub fn git_fetch(root: &Path) -> Result<(), git2::Error> {
 
 #[derive(Serialize, Deserialize)]
 pub struct BranchInfo {
-    name: String,
+    name: Option<String>,
     commit_hash: String,
     time: i64,
-    message: String,
+    message: Option<String>,
+}
+
+fn get_branch_info(branch_struct: Result<(Branch, BranchType), git2::Error>) -> Result<BranchInfo, git2::Error> {
+    let branch = branch_struct?.0;
+    let name = branch.name()?.map(String::from);
+
+    let branch_commit = branch.into_reference().peel_to_commit()?;
+    let message = branch_commit.message().map(String::from);
+
+    Ok(BranchInfo {
+        name,
+        commit_hash: branch_commit.id().to_string(),
+        time: branch_commit.time().seconds(),
+        message,
+    })
 }
 
 pub fn git_list_branches(root: &Path) -> Result<Vec<BranchInfo>, git2::Error> {
     let repo = Repository::open(root)?;
-    let branches = repo
-        .branches(Some(BranchType::Local))?
-        .map(|branch| branch.unwrap().0)
-        .map(|branch_struct| -> BranchInfo {
-            let name = branch_struct.name().unwrap().unwrap().to_owned();
-            let branch_commit = branch_struct.into_reference().peel_to_commit().unwrap();
-            BranchInfo {
-                name,
-                commit_hash: branch_commit.id().to_string(),
-                time: branch_commit.time().seconds(),
-                message: branch_commit.message().unwrap().to_owned(),
-            }
-            // branch_struct.into_reference().peel_to_commit().unwrap().
-        })
+    let branches = repo.branches(Some(BranchType::Local))?
+        .map(get_branch_info)
         .collect();
     Ok(branches)
 }
