@@ -250,8 +250,8 @@ pub fn api(root: &Path) -> anyhow::Result<Router> {
         .route("/packit/metadata", get(get_metadata_since))
         .route("/file/:hash", get(get_file).post(add_file))
         .route("/packet/:hash", post(add_packet))
-        .route("/git/fetch", post(git_fetch))
-        .route("/git/branches", post(git_list_branches))
+        .route("/git/fetch", get(git_fetch))
+        .route("/git/branches", get(git_list_branches))
         .route("/metrics", get(|| async move { metrics::render(registry) }))
         .fallback(not_found)
         .with_state(root.to_owned());
