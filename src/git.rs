@@ -1,6 +1,7 @@
 use std::path::Path;
 
-use git2::Repository;
+use git2::{BranchType, Repository};
+use serde::{Deserialize, Serialize};
 
 pub fn git_fetch(root: &Path) -> Result<(), git2::Error> {
     let repo = Repository::open(root)?;
@@ -11,8 +12,37 @@ pub fn git_fetch(root: &Path) -> Result<(), git2::Error> {
     Ok(())
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct BranchInfo {
+    name: String,
+    commit_hash: String,
+    time: i64,
+    message: String
+}
+
+pub fn git_list_branches(root: &Path) -> Result<Vec<BranchInfo>, git2::Error> {
+    let repo = Repository::open(root)?;
+    let branches = repo.branches(Some(BranchType::Local))?
+        .map(|branch| branch.unwrap().0)
+        .map(|branch_struct| -> BranchInfo {
+                let name = branch_struct.name().unwrap().unwrap().to_owned();
+                let branch_commit = branch_struct.into_reference().peel_to_commit().unwrap();
+                BranchInfo {
+                    name,
+                    commit_hash: branch_commit.id().to_string(),
+                    time: branch_commit.time().seconds(),
+                    message: branch_commit.message().unwrap().to_owned()
+                }
+                // branch_struct.into_reference().peel_to_commit().unwrap().
+            })
+        .collect();
+    Ok(branches)
+}
+
 #[cfg(test)]
 mod tests {
+    use std::time::SystemTime;
+
     use test_utils::{git_get_latest_commit, git_remote_branches, initialise_git_repo};
 
     use super::*;
@@ -41,5 +71,19 @@ mod tests {
 
         let post_fetch_branches = git_remote_branches(&test_git.local);
         assert_eq!(post_fetch_branches.count(), 3); // HEAD, main and other
+    }
+
+    #[test]
+    fn can_list_git_branches() {
+        let test_git = initialise_git_repo(None);
+        let branches = git_list_branches(&test_git.dir.path().join("remote")).unwrap();
+        let now_in_seconds = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs();
+        assert_eq!(branches.len(), 2);
+        assert_eq!(branches[0].name, "master");
+        assert_eq!(branches[0].message, "Second commit");
+        assert_eq!(branches[0].time, now_in_seconds as i64);
+        assert_eq!(branches[1].name, "other");
+        assert_eq!(branches[1].message, "Third commit");
+        assert_eq!(branches[1].time, now_in_seconds as i64);
     }
 }
