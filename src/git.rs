@@ -17,24 +17,25 @@ pub struct BranchInfo {
     name: String,
     commit_hash: String,
     time: i64,
-    message: String
+    message: String,
 }
 
 pub fn git_list_branches(root: &Path) -> Result<Vec<BranchInfo>, git2::Error> {
     let repo = Repository::open(root)?;
-    let branches = repo.branches(Some(BranchType::Local))?
+    let branches = repo
+        .branches(Some(BranchType::Local))?
         .map(|branch| branch.unwrap().0)
         .map(|branch_struct| -> BranchInfo {
-                let name = branch_struct.name().unwrap().unwrap().to_owned();
-                let branch_commit = branch_struct.into_reference().peel_to_commit().unwrap();
-                BranchInfo {
-                    name,
-                    commit_hash: branch_commit.id().to_string(),
-                    time: branch_commit.time().seconds(),
-                    message: branch_commit.message().unwrap().to_owned()
-                }
-                // branch_struct.into_reference().peel_to_commit().unwrap().
-            })
+            let name = branch_struct.name().unwrap().unwrap().to_owned();
+            let branch_commit = branch_struct.into_reference().peel_to_commit().unwrap();
+            BranchInfo {
+                name,
+                commit_hash: branch_commit.id().to_string(),
+                time: branch_commit.time().seconds(),
+                message: branch_commit.message().unwrap().to_owned(),
+            }
+            // branch_struct.into_reference().peel_to_commit().unwrap().
+        })
         .collect();
     Ok(branches)
 }
@@ -77,7 +78,10 @@ mod tests {
     fn can_list_git_branches() {
         let test_git = initialise_git_repo(None);
         let branches = git_list_branches(&test_git.dir.path().join("remote")).unwrap();
-        let now_in_seconds = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs();
+        let now_in_seconds = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
         assert_eq!(branches.len(), 2);
         assert_eq!(branches[0].name, "master");
         assert_eq!(branches[0].message, "Second commit");
