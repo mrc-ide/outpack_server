@@ -3,6 +3,7 @@ use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::Once;
+use std::time::SystemTime;
 
 use axum::body::Body;
 use axum::extract::Request;
@@ -747,7 +748,7 @@ async fn can_fetch_git() {
     assert_eq!(initial_branches.count(), 2); // HEAD and main
 
     let response = client
-        .post("/git/fetch", mime::APPLICATION_JSON, Body::empty())
+        .get("/git/fetch")
         .await;
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(response.content_type(), mime::APPLICATION_JSON);
@@ -768,6 +769,54 @@ async fn can_fetch_git() {
 
     let post_fetch_branches = git_remote_branches(&test_git.local);
     assert_eq!(post_fetch_branches.count(), 3); // HEAD, main and other
+}
+
+#[tokio::test]
+async fn can_list_git_branches() {
+    let test_dir = get_test_dir();
+    let test_git = initialise_git_repo(Some(&test_dir));
+    let now_in_seconds = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+    let mut client = TestClient::new(test_git.dir.path().join("remote"));
+
+    let response = client
+        .get("/git/branches")
+        .await;
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.content_type(), mime::APPLICATION_JSON);
+
+    let body = response.to_json().await;
+    validate_success("server", "branches.json", &body);
+
+    let entries = body.get("data").unwrap().as_array().unwrap();
+
+    assert_eq!(
+        entries[0].get("name").unwrap().as_str().unwrap(),
+        "master"
+    );
+    assert_eq!(
+        entries[0].get("time").unwrap().as_u64().unwrap(),
+        now_in_seconds
+    );
+    assert_eq!(
+        entries[0].get("message").unwrap().as_str().unwrap(),
+        "Second commit"
+    );
+    assert_eq!(
+        entries[1].get("name").unwrap().as_str().unwrap(),
+        "other"
+    );
+    assert_eq!(
+        entries[1].get("time").unwrap().as_u64().unwrap(),
+        now_in_seconds
+    );
+    assert_eq!(
+        entries[1].get("message").unwrap().as_str().unwrap(),
+        "Third commit"
+    );
 }
 
 fn validate_success(schema_group: &str, schema_name: &str, instance: &Value) {
