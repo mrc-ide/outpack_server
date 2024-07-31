@@ -20,7 +20,9 @@ pub struct BranchInfo {
     message: Option<String>,
 }
 
-fn get_branch_info(branch_struct: Result<(Branch, BranchType), git2::Error>) -> Result<BranchInfo, git2::Error> {
+fn get_branch_info(
+    branch_struct: Result<(Branch, BranchType), git2::Error>,
+) -> Result<BranchInfo, git2::Error> {
     let branch = branch_struct?.0;
     let name = branch.name()?.map(String::from);
 
@@ -37,10 +39,11 @@ fn get_branch_info(branch_struct: Result<(Branch, BranchType), git2::Error>) -> 
 
 pub fn git_list_branches(root: &Path) -> Result<Vec<BranchInfo>, git2::Error> {
     let repo = Repository::open(root)?;
-    let branches = repo.branches(Some(BranchType::Local))?
+    let git_branches: Result<Vec<BranchInfo>, git2::Error> = repo
+        .branches(Some(BranchType::Local))?
         .map(get_branch_info)
         .collect();
-    Ok(branches)
+    git_branches
 }
 
 #[cfg(test)]
@@ -86,11 +89,11 @@ mod tests {
             .unwrap()
             .as_secs();
         assert_eq!(branches.len(), 2);
-        assert_eq!(branches[0].name, "master");
-        assert_eq!(branches[0].message, "Second commit");
+        assert_eq!(branches[0].name, Some(String::from("main")));
+        assert_eq!(branches[0].message, Some(String::from("Second commit")));
         assert_eq!(branches[0].time, now_in_seconds as i64);
-        assert_eq!(branches[1].name, "other");
-        assert_eq!(branches[1].message, "Third commit");
+        assert_eq!(branches[1].name, Some(String::from("other")));
+        assert_eq!(branches[1].message, Some(String::from("Third commit")));
         assert_eq!(branches[1].time, now_in_seconds as i64);
     }
 }
