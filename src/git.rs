@@ -89,7 +89,7 @@ mod tests {
             .unwrap()
             .as_secs();
         assert_eq!(branches.len(), 2);
-        assert_eq!(branches[0].name, Some(String::from("main")));
+        assert_eq!(branches[0].name, Some(String::from("master")));
         assert_eq!(branches[0].message, Some(String::from("Second commit")));
         assert_eq!(branches[0].time, now_in_seconds as i64);
         assert_eq!(branches[1].name, Some(String::from("other")));
