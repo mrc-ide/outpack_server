@@ -747,9 +747,7 @@ async fn can_fetch_git() {
     let initial_branches = git_remote_branches(&test_git.local);
     assert_eq!(initial_branches.count(), 2); // HEAD and main
 
-    let response = client
-        .get("/git/fetch")
-        .await;
+    let response = client.get("/git/fetch").await;
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(response.content_type(), mime::APPLICATION_JSON);
 
@@ -776,15 +774,13 @@ async fn can_list_git_branches() {
     let test_dir = get_test_dir();
     let test_git = initialise_git_repo(Some(&test_dir));
     let now_in_seconds = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
 
     let mut client = TestClient::new(test_git.dir.path().join("remote"));
 
-    let response = client
-        .get("/git/branches")
-        .await;
+    let response = client.get("/git/branches").await;
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(response.content_type(), mime::APPLICATION_JSON);
 
@@ -793,10 +789,7 @@ async fn can_list_git_branches() {
 
     let entries = body.get("data").unwrap().as_array().unwrap();
 
-    assert_eq!(
-        entries[0].get("name").unwrap().as_str().unwrap(),
-        "master"
-    );
+    assert_eq!(entries[0].get("name").unwrap().as_str().unwrap(), "master");
     assert_eq!(
         entries[0].get("time").unwrap().as_u64().unwrap(),
         now_in_seconds
@@ -805,10 +798,7 @@ async fn can_list_git_branches() {
         entries[0].get("message").unwrap().as_str().unwrap(),
         "Second commit"
     );
-    assert_eq!(
-        entries[1].get("name").unwrap().as_str().unwrap(),
-        "other"
-    );
+    assert_eq!(entries[1].get("name").unwrap().as_str().unwrap(), "other");
     assert_eq!(
         entries[1].get("time").unwrap().as_u64().unwrap(),
         now_in_seconds
