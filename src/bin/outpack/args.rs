@@ -24,10 +24,6 @@ pub enum Command {
         /// Require a complete tree.
         #[arg(long)]
         require_complete_tree: bool,
-
-        /// Specify a default branch, will be taken as master or main if None.
-        #[arg(long)]
-        default_branch: Option<String>,
     },
 
     /// Search for a packet in a repository

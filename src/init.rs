@@ -9,14 +9,12 @@ pub fn outpack_init(
     path_archive: Option<String>,
     use_file_store: bool,
     require_complete_tree: bool,
-    default_branch: Option<String>,
 ) -> anyhow::Result<()> {
     let path_outpack = path.join(".outpack");
     let cfg = config::Config::new(
         path_archive,
         use_file_store,
         require_complete_tree,
-        default_branch,
     )?;
 
     if path_outpack.exists() {
@@ -48,11 +46,11 @@ mod tests {
     fn can_create_empty_config() {
         let tmp = tempfile::TempDir::new().unwrap();
         let path = tmp.path();
-        let res = outpack_init(path, None, true, true, None);
+        let res = outpack_init(path, None, true, true);
         assert!(res.is_ok());
         assert_eq!(
             config::read_config(path).unwrap(),
-            config::Config::new(None, true, true, None).unwrap()
+            config::Config::new(None, true, true).unwrap()
         );
     }
 
@@ -60,18 +58,18 @@ mod tests {
     fn can_reinit_an_existing_repo() {
         let tmp = tempfile::TempDir::new().unwrap();
         let path = tmp.path();
-        let res = outpack_init(path, Some(String::from("archive")), false, false, None);
+        let res = outpack_init(path, Some(String::from("archive")), false, false);
         assert!(res.is_ok());
         assert_eq!(
             config::read_config(path).unwrap(),
-            config::Config::new(Some(String::from("archive")), false, false, None).unwrap()
+            config::Config::new(Some(String::from("archive")), false, false).unwrap()
         );
 
-        let res = outpack_init(path, Some(String::from("archive")), false, false, None);
+        let res = outpack_init(path, Some(String::from("archive")), false, false);
         assert!(res.is_ok());
         assert_eq!(
             config::read_config(path).unwrap(),
-            config::Config::new(Some(String::from("archive")), false, false, None).unwrap()
+            config::Config::new(Some(String::from("archive")), false, false).unwrap()
         );
     }
 
@@ -79,8 +77,8 @@ mod tests {
     fn error_if_config_has_changed() {
         let tmp = tempfile::TempDir::new().unwrap();
         let path = tmp.path();
-        outpack_init(path, Some(String::from("archive")), false, false, None).unwrap();
-        let res = outpack_init(path, None, true, true, None);
+        outpack_init(path, Some(String::from("archive")), false, false).unwrap();
+        let res = outpack_init(path, None, true, true);
         assert!(res.is_err());
         assert_eq!(
             res.unwrap_err().to_string(),

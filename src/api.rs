@@ -294,7 +294,6 @@ mod tests {
         path_archive: Option<String>,
         use_file_store: bool,
         require_complete_tree: bool,
-        default_branch: Option<String>,
     ) -> config::Config {
         let location: Vec<config::Location> = Vec::new();
         let core = config::Core {
@@ -302,7 +301,6 @@ mod tests {
             path_archive,
             use_file_store,
             require_complete_tree,
-            default_branch,
         };
         config::Config { location, core }
     }
@@ -314,7 +312,6 @@ mod tests {
             None,
             true,
             true,
-            None,
         ));
         assert_eq!(
             res.unwrap_err().to_string(),
@@ -326,7 +323,6 @@ mod tests {
             None,
             false,
             true,
-            None,
         ));
         assert_eq!(
             res.unwrap_err().to_string(),
@@ -338,7 +334,6 @@ mod tests {
             None,
             true,
             false,
-            None,
         ));
         assert_eq!(
             res.unwrap_err().to_string(),
@@ -350,7 +345,6 @@ mod tests {
             Some(String::from("archive")),
             true,
             true,
-            None,
         ));
         assert_eq!(res.unwrap_err().to_string(), "Outpack must be configured to *not* use an archive, but your path_archive is 'archive'");
     }

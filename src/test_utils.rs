@@ -70,7 +70,6 @@ pub mod tests {
             None,
             /* use_file_store */ true,
             /* require_complete_tree */ true,
-            /* default_branch */ None,
         )
         .unwrap();
 
