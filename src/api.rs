@@ -302,40 +302,31 @@ mod tests {
             use_file_store,
             require_complete_tree,
         };
-        let git = config::GitConfig { default_branch: None };
-        config::Config { location, core, git }
+        let git = config::GitConfig {
+            default_branch: None,
+        };
+        config::Config {
+            location,
+            core,
+            git,
+        }
     }
 
     #[test]
     fn can_validate_config() {
-        let res = check_config(&make_config(
-            hash::HashAlgorithm::Sha1,
-            None,
-            true,
-            true,
-        ));
+        let res = check_config(&make_config(hash::HashAlgorithm::Sha1, None, true, true));
         assert_eq!(
             res.unwrap_err().to_string(),
             "Outpack must be configured to use hash algorithm 'sha256', but you are using 'sha1'"
         );
 
-        let res = check_config(&make_config(
-            hash::HashAlgorithm::Sha256,
-            None,
-            false,
-            true,
-        ));
+        let res = check_config(&make_config(hash::HashAlgorithm::Sha256, None, false, true));
         assert_eq!(
             res.unwrap_err().to_string(),
             "Outpack must be configured to use a file store"
         );
 
-        let res = check_config(&make_config(
-            hash::HashAlgorithm::Sha256,
-            None,
-            true,
-            false,
-        ));
+        let res = check_config(&make_config(hash::HashAlgorithm::Sha256, None, true, false));
         assert_eq!(
             res.unwrap_err().to_string(),
             "Outpack must be configured to require a complete tree"

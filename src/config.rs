@@ -25,14 +25,14 @@ pub struct Core {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct GitConfig {
-    pub default_branch: Option<String>
+    pub default_branch: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct Config {
     pub core: Core,
     pub location: Vec<Location>,
-    pub git: GitConfig
+    pub git: GitConfig,
 }
 
 impl Config {
@@ -56,9 +56,13 @@ impl Config {
         };
         let location: Vec<Location> = Vec::new();
         let git = GitConfig {
-            default_branch: None
+            default_branch: None,
         };
-        Ok(Config { core, location, git })
+        Ok(Config {
+            core,
+            location,
+            git,
+        })
     }
 }
 

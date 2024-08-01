@@ -11,11 +11,7 @@ pub fn outpack_init(
     require_complete_tree: bool,
 ) -> anyhow::Result<()> {
     let path_outpack = path.join(".outpack");
-    let cfg = config::Config::new(
-        path_archive,
-        use_file_store,
-        require_complete_tree,
-    )?;
+    let cfg = config::Config::new(path_archive, use_file_store, require_complete_tree)?;
 
     if path_outpack.exists() {
         let prev = config::read_config(path)?;
