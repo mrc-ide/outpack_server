@@ -21,6 +21,7 @@ pub struct Core {
     pub path_archive: Option<String>,
     pub use_file_store: bool,
     pub require_complete_tree: bool,
+    pub default_branch: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
@@ -34,6 +35,7 @@ impl Config {
         path_archive: Option<String>,
         use_file_store: bool,
         require_complete_tree: bool,
+        default_branch: Option<String>,
     ) -> Result<Self, Error> {
         if !use_file_store && path_archive.is_none() {
             return Err(Error::new(
@@ -47,6 +49,7 @@ impl Config {
             path_archive,
             use_file_store,
             require_complete_tree,
+            default_branch,
         };
         let location: Vec<Location> = Vec::new();
         Ok(Config { core, location })
@@ -85,7 +88,7 @@ mod tests {
 
     #[test]
     fn can_write_config() {
-        let cfg = Config::new(None, true, true).unwrap();
+        let cfg = Config::new(None, true, true, None).unwrap();
         let tmp = tempfile::TempDir::new().unwrap();
         let path = tmp.path();
         fs::create_dir_all(path.join(".outpack")).unwrap();
@@ -95,7 +98,7 @@ mod tests {
 
     #[test]
     fn need_some_storage() {
-        let cfg = Config::new(None, false, false);
+        let cfg = Config::new(None, false, false, None);
         assert!(cfg.is_err());
         assert_eq!(
             cfg.unwrap_err().to_string(),

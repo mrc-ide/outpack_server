@@ -4,7 +4,8 @@
     "path_archive": null,
     "use_file_store": true,
     "require_complete_tree": true,
-    "hash_algorithm": "sha256"
+    "hash_algorithm": "sha256",
+    "default_branch": null
   },
   "location": [
     {

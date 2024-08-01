@@ -13,8 +13,9 @@ fn main() -> anyhow::Result<()> {
             path_archive,
             use_file_store,
             require_complete_tree,
+            default_branch
         } => {
-            outpack_init(&path, path_archive, use_file_store, require_complete_tree)?;
+            outpack_init(&path, path_archive, use_file_store, require_complete_tree, default_branch)?;
         }
 
         Command::Search { root, query } => {
