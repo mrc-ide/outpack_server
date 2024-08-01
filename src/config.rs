@@ -24,9 +24,15 @@ pub struct Core {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
+pub struct GitConfig {
+    pub default_branch: Option<String>
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct Config {
     pub core: Core,
     pub location: Vec<Location>,
+    pub git: GitConfig
 }
 
 impl Config {
@@ -49,7 +55,10 @@ impl Config {
             require_complete_tree,
         };
         let location: Vec<Location> = Vec::new();
-        Ok(Config { core, location })
+        let git = GitConfig {
+            default_branch: None
+        };
+        Ok(Config { core, location, git })
     }
 }
 
@@ -81,6 +90,7 @@ mod tests {
         assert!(cfg.core.use_file_store);
         assert!(cfg.core.require_complete_tree);
         assert!(cfg.core.path_archive.is_none());
+        assert!(cfg.git.default_branch.is_none());
     }
 
     #[test]

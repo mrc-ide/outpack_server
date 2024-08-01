@@ -57,7 +57,7 @@ pub fn git_list_branches(root: &Path) -> Result<BranchResponse, git2::Error> {
 
     let default_branch_name = read_config(root)
         .map_err(io_err_to_git_err)?
-        .core
+        .git
         .default_branch;
 
     let default_branch_struct = match default_branch_name {
@@ -126,7 +126,7 @@ mod tests {
         let outpack_path = &remote_path.join(".outpack");
         std::fs::create_dir(outpack_path).unwrap();
 
-        let cfg = Config::new(None, true, true, None).unwrap();
+        let cfg = Config::new(None, true, true).unwrap();
         write_config(&cfg, &remote_path).unwrap();
 
         let branch_response = git_list_branches(&remote_path).unwrap();
@@ -160,7 +160,8 @@ mod tests {
         let outpack_path = &remote_path.join(".outpack");
         std::fs::create_dir(outpack_path).unwrap();
 
-        let cfg = Config::new(None, true, true, Some(String::from("other"))).unwrap();
+        let mut cfg = Config::new(None, true, true).unwrap();
+        cfg.git.default_branch = Some(String::from("other"));
         write_config(&cfg, &remote_path).unwrap();
 
         let branch_response = git_list_branches(&remote_path).unwrap();
