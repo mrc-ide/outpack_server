@@ -21,6 +21,9 @@
                 },
                 "hash_algorithm": {
                     "enum": ["md5", "sha1", "sha256", "sha384", "sha512"]
+                },
+                "default_branch": {
+                    "type": ["null", "string"]
                 }
             },
             "required": ["path_archive", "use_file_store", "hash_algorithm"],
