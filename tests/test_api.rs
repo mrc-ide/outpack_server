@@ -785,7 +785,7 @@ async fn can_list_git_branches() {
     assert_eq!(response.content_type(), mime::APPLICATION_JSON);
 
     let body = response.to_json().await;
-    validate_success("server", "branches.json", &body);
+    validate_success("server", "branch-response.json", &body);
 
     let entries = body.get("data").unwrap().as_array().unwrap();
 
