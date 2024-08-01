@@ -166,7 +166,7 @@ async fn git_fetch(root: State<PathBuf>) -> Result<OutpackSuccess<()>, OutpackEr
 
 async fn git_list_branches(
     root: State<PathBuf>,
-) -> Result<OutpackSuccess<Vec<git::BranchInfo>>, OutpackError> {
+) -> Result<OutpackSuccess<git::BranchResponse>, OutpackError> {
     git::git_list_branches(&root)
         .map_err(OutpackError::from)
         .map(OutpackSuccess::from)
@@ -294,6 +294,7 @@ mod tests {
         path_archive: Option<String>,
         use_file_store: bool,
         require_complete_tree: bool,
+        default_branch: Option<String>,
     ) -> config::Config {
         let location: Vec<config::Location> = Vec::new();
         let core = config::Core {
@@ -301,25 +302,44 @@ mod tests {
             path_archive,
             use_file_store,
             require_complete_tree,
+            default_branch,
         };
         config::Config { location, core }
     }
 
     #[test]
     fn can_validate_config() {
-        let res = check_config(&make_config(hash::HashAlgorithm::Sha1, None, true, true));
+        let res = check_config(&make_config(
+            hash::HashAlgorithm::Sha1,
+            None,
+            true,
+            true,
+            None,
+        ));
         assert_eq!(
             res.unwrap_err().to_string(),
             "Outpack must be configured to use hash algorithm 'sha256', but you are using 'sha1'"
         );
 
-        let res = check_config(&make_config(hash::HashAlgorithm::Sha256, None, false, true));
+        let res = check_config(&make_config(
+            hash::HashAlgorithm::Sha256,
+            None,
+            false,
+            true,
+            None,
+        ));
         assert_eq!(
             res.unwrap_err().to_string(),
             "Outpack must be configured to use a file store"
         );
 
-        let res = check_config(&make_config(hash::HashAlgorithm::Sha256, None, true, false));
+        let res = check_config(&make_config(
+            hash::HashAlgorithm::Sha256,
+            None,
+            true,
+            false,
+            None,
+        ));
         assert_eq!(
             res.unwrap_err().to_string(),
             "Outpack must be configured to require a complete tree"
@@ -330,6 +350,7 @@ mod tests {
             Some(String::from("archive")),
             true,
             true,
+            None,
         ));
         assert_eq!(res.unwrap_err().to_string(), "Outpack must be configured to *not* use an archive, but your path_archive is 'archive'");
     }
