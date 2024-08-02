@@ -25,7 +25,7 @@ pub struct BranchInfo {
     name: Option<String>,
     commit_hash: String,
     time: i64,
-    message: Option<String>,
+    message: Option<Vec<String>>,
 }
 
 fn get_branch_struct(
@@ -38,7 +38,11 @@ fn get_branch_info(branch: Branch) -> Result<BranchInfo, git2::Error> {
     let name = branch.name()?.map(String::from);
 
     let branch_commit = branch.into_reference().peel_to_commit()?;
-    let message = branch_commit.message().map(String::from);
+    let message = branch_commit.message().map(|s| {
+        s.split_terminator("\n")
+            .map(String::from)
+            .collect::<Vec<String>>()
+    });
 
     Ok(BranchInfo {
         name,
@@ -138,18 +142,21 @@ mod tests {
         let branches_list = branch_response.branches;
 
         assert_eq!(default_branch.name, Some(String::from("master")));
-        assert_eq!(default_branch.message, Some(String::from("Second commit")));
+        assert_eq!(default_branch.message, Some(vec![String::from("Second commit")]));
         assert_eq!(default_branch.time, now_in_seconds as i64);
 
         assert_eq!(branches_list.len(), 2);
         assert_eq!(branches_list[0].name, Some(String::from("master")));
         assert_eq!(
             branches_list[0].message,
-            Some(String::from("Second commit"))
+            Some(vec![String::from("Second commit")])
         );
         assert_eq!(branches_list[0].time, now_in_seconds as i64);
         assert_eq!(branches_list[1].name, Some(String::from("other")));
-        assert_eq!(branches_list[1].message, Some(String::from("Third commit")));
+        assert_eq!(
+            branches_list[1].message,
+            Some(vec![String::from("Third commit")])
+        );
         assert_eq!(branches_list[1].time, now_in_seconds as i64);
     }
 
@@ -173,18 +180,18 @@ mod tests {
         let branches_list = branch_response.branches;
 
         assert_eq!(default_branch.name, Some(String::from("other")));
-        assert_eq!(default_branch.message, Some(String::from("Third commit")));
+        assert_eq!(default_branch.message, Some(vec![String::from("Third commit")]));
         assert_eq!(default_branch.time, now_in_seconds as i64);
 
         assert_eq!(branches_list.len(), 2);
         assert_eq!(branches_list[0].name, Some(String::from("master")));
         assert_eq!(
             branches_list[0].message,
-            Some(String::from("Second commit"))
+            Some(vec![String::from("Second commit")])
         );
         assert_eq!(branches_list[0].time, now_in_seconds as i64);
         assert_eq!(branches_list[1].name, Some(String::from("other")));
-        assert_eq!(branches_list[1].message, Some(String::from("Third commit")));
+        assert_eq!(branches_list[1].message, Some(vec![String::from("Third commit")]));
         assert_eq!(branches_list[1].time, now_in_seconds as i64);
     }
 }

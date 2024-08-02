@@ -4,10 +4,7 @@
   "type": "object",
   "properties": {
     "name": {
-      "oneOf": [
-        { "type": "null" },
-        { "type": "string" }
-      ]
+      "type": ["null", "string"]
     },
     "commit_hash": {
       "type": "string"
@@ -18,7 +15,12 @@
     "message": {
       "oneOf": [
         { "type": "null" },
-        { "type": "string" }
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       ]
     }
   },
