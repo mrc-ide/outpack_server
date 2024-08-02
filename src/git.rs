@@ -17,7 +17,7 @@ pub struct BranchInfo {
     name: Option<String>,
     commit_hash: String,
     time: i64,
-    message: Option<String>,
+    message: Option<Vec<String>>,
 }
 
 fn get_branch_info(
@@ -27,7 +27,9 @@ fn get_branch_info(
     let name = branch.name()?.map(String::from);
 
     let branch_commit = branch.into_reference().peel_to_commit()?;
-    let message = branch_commit.message().map(String::from);
+    let message = branch_commit
+        .message()
+        .map(|s| s.split("\n").map(String::from).collect::<Vec<String>>());
 
     Ok(BranchInfo {
         name,
@@ -90,10 +92,10 @@ mod tests {
             .as_secs();
         assert_eq!(branches.len(), 2);
         assert_eq!(branches[0].name, Some(String::from("master")));
-        assert_eq!(branches[0].message, Some(String::from("Second commit")));
+        assert_eq!(branches[0].message, Some(vec![String::from("Second commit")]));
         assert_eq!(branches[0].time, now_in_seconds as i64);
         assert_eq!(branches[1].name, Some(String::from("other")));
-        assert_eq!(branches[1].message, Some(String::from("Third commit")));
+        assert_eq!(branches[1].message, Some(vec![String::from("Third commit")]));
         assert_eq!(branches[1].time, now_in_seconds as i64);
     }
 }
