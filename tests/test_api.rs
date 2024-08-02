@@ -747,7 +747,9 @@ async fn can_fetch_git() {
     let initial_branches = git_remote_branches(&test_git.local);
     assert_eq!(initial_branches.count(), 2); // HEAD and main
 
-    let response = client.get("/git/fetch").await;
+    let response = client
+    .post("/git/fetch", mime::APPLICATION_JSON, Body::empty())
+    .await;
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(response.content_type(), mime::APPLICATION_JSON);
 
@@ -795,8 +797,8 @@ async fn can_list_git_branches() {
         now_in_seconds
     );
     assert_eq!(
-        entries[0].get("message").unwrap().as_str().unwrap(),
-        "Second commit"
+        *entries[0].get("message").unwrap().as_array().unwrap(),
+        vec!["Second commit"]
     );
     assert_eq!(entries[1].get("name").unwrap().as_str().unwrap(), "other");
     assert_eq!(
@@ -804,8 +806,8 @@ async fn can_list_git_branches() {
         now_in_seconds
     );
     assert_eq!(
-        entries[1].get("message").unwrap().as_str().unwrap(),
-        "Third commit"
+        *entries[1].get("message").unwrap().as_array().unwrap(),
+        vec!["Third commit"]
     );
 }
 
