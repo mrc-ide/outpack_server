@@ -12,8 +12,5 @@
       "type": "file",
       "args": []
     }
-  ],
-  "git": {
-    "default_branch": null
-  }
+  ]
 }
