@@ -27,9 +27,11 @@ fn get_branch_info(
     let name = branch.name()?.map(String::from);
 
     let branch_commit = branch.into_reference().peel_to_commit()?;
-    let message = branch_commit
-        .message()
-        .map(|s| s.split("\n").map(String::from).collect::<Vec<String>>());
+    let message = branch_commit.message().map(|s| {
+        s.split_terminator("\n")
+            .map(String::from)
+            .collect::<Vec<String>>()
+    });
 
     Ok(BranchInfo {
         name,

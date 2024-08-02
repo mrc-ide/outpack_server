@@ -292,13 +292,13 @@ The metadata should be written directly to the request body.
 }
 ```
 
-### GET /git/fetch
+### POST /git/fetch
 
-Does a git fetch on the repository (relevant for when runners clone down git repositories)
+Does a git fetch on the repository (relevant for when runners clone down git repositories). Expects an empty json body.
 
 ### GET /git/branches
 
-Returns an array of branches with their `name`, `commit_hash` (where branch pointer is), `time` (of last commit) and `message` (of last commit)
+Returns an array of branches with their `name`, `commit_hash` (where branch pointer is), `time` (of last commit) and `message` (of last commit in a string array split with respect to newline characters)
 
 #### Response
 
@@ -310,13 +310,13 @@ Returns an array of branches with their `name`, `commit_hash` (where branch poin
       "name": "main",
       "commit_hash": "ede307e23b2137ba2c7c3270e52f354f224942af",
       "time": 1722436575,
-      "message": "First commit\n"
+      "message": ["First commit"]
     },
     {
       "name": "other",
       "commit_hash": "e9078cf779584168c3781379380a3b1352545cda",
       "time": 1722436640,
-      "message": "Second commit\n"
+      "message": ["Second commit"]
     }
   ],
   "errors": null
