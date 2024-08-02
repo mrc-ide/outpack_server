@@ -748,8 +748,8 @@ async fn can_fetch_git() {
     assert_eq!(initial_branches.count(), 2); // HEAD and main
 
     let response = client
-    .post("/git/fetch", mime::APPLICATION_JSON, Body::empty())
-    .await;
+        .post("/git/fetch", mime::APPLICATION_JSON, Body::empty())
+        .await;
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(response.content_type(), mime::APPLICATION_JSON);
 

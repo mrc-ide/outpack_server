@@ -92,10 +92,16 @@ mod tests {
             .as_secs();
         assert_eq!(branches.len(), 2);
         assert_eq!(branches[0].name, Some(String::from("master")));
-        assert_eq!(branches[0].message, Some(vec![String::from("Second commit")]));
+        assert_eq!(
+            branches[0].message,
+            Some(vec![String::from("Second commit")])
+        );
         assert_eq!(branches[0].time, now_in_seconds as i64);
         assert_eq!(branches[1].name, Some(String::from("other")));
-        assert_eq!(branches[1].message, Some(vec![String::from("Third commit")]));
+        assert_eq!(
+            branches[1].message,
+            Some(vec![String::from("Third commit")])
+        );
         assert_eq!(branches[1].time, now_in_seconds as i64);
     }
 }
