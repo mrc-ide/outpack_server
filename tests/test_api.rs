@@ -793,7 +793,10 @@ async fn can_list_git_branches() {
     let default_branch = entries.get("default_branch").unwrap().as_object().unwrap();
     let branch_list = entries.get("branches").unwrap().as_array().unwrap();
 
-    assert_eq!(default_branch.get("name").unwrap().as_str().unwrap(), "master");
+    assert_eq!(
+        default_branch.get("name").unwrap().as_str().unwrap(),
+        "master"
+    );
     assert_eq!(
         default_branch.get("time").unwrap().as_u64().unwrap(),
         now_in_seconds
@@ -803,7 +806,10 @@ async fn can_list_git_branches() {
         vec!["Second commit"]
     );
 
-    assert_eq!(branch_list[0].get("name").unwrap().as_str().unwrap(), "master");
+    assert_eq!(
+        branch_list[0].get("name").unwrap().as_str().unwrap(),
+        "master"
+    );
     assert_eq!(
         branch_list[0].get("time").unwrap().as_u64().unwrap(),
         now_in_seconds
@@ -812,7 +818,10 @@ async fn can_list_git_branches() {
         *branch_list[0].get("message").unwrap().as_array().unwrap(),
         vec!["Second commit"]
     );
-    assert_eq!(branch_list[1].get("name").unwrap().as_str().unwrap(), "other");
+    assert_eq!(
+        branch_list[1].get("name").unwrap().as_str().unwrap(),
+        "other"
+    );
     assert_eq!(
         branch_list[1].get("time").unwrap().as_u64().unwrap(),
         now_in_seconds
