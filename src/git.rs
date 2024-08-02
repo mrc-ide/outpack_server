@@ -1,6 +1,7 @@
 use std::path::Path;
 
-use git2::Repository;
+use git2::{Branch, BranchType, Repository};
+use serde::{Deserialize, Serialize};
 
 pub fn git_fetch(root: &Path) -> Result<(), git2::Error> {
     let repo = Repository::open(root)?;
@@ -11,8 +12,48 @@ pub fn git_fetch(root: &Path) -> Result<(), git2::Error> {
     Ok(())
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct BranchInfo {
+    name: Option<String>,
+    commit_hash: String,
+    time: i64,
+    message: Option<Vec<String>>,
+}
+
+fn get_branch_info(
+    branch_struct: Result<(Branch, BranchType), git2::Error>,
+) -> Result<BranchInfo, git2::Error> {
+    let branch = branch_struct?.0;
+    let name = branch.name()?.map(String::from);
+
+    let branch_commit = branch.into_reference().peel_to_commit()?;
+    let message = branch_commit.message().map(|s| {
+        s.split_terminator("\n")
+            .map(String::from)
+            .collect::<Vec<String>>()
+    });
+
+    Ok(BranchInfo {
+        name,
+        commit_hash: branch_commit.id().to_string(),
+        time: branch_commit.time().seconds(),
+        message,
+    })
+}
+
+pub fn git_list_branches(root: &Path) -> Result<Vec<BranchInfo>, git2::Error> {
+    let repo = Repository::open(root)?;
+    let git_branches: Result<Vec<BranchInfo>, git2::Error> = repo
+        .branches(Some(BranchType::Local))?
+        .map(get_branch_info)
+        .collect();
+    git_branches
+}
+
 #[cfg(test)]
 mod tests {
+    use std::time::SystemTime;
+
     use test_utils::{git_get_latest_commit, git_remote_branches, initialise_git_repo};
 
     use super::*;
@@ -41,5 +82,28 @@ mod tests {
 
         let post_fetch_branches = git_remote_branches(&test_git.local);
         assert_eq!(post_fetch_branches.count(), 3); // HEAD, main and other
+    }
+
+    #[test]
+    fn can_list_git_branches() {
+        let test_git = initialise_git_repo(None);
+        let branches = git_list_branches(&test_git.dir.path().join("remote")).unwrap();
+        let now_in_seconds = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        assert_eq!(branches.len(), 2);
+        assert_eq!(branches[0].name, Some(String::from("master")));
+        assert_eq!(
+            branches[0].message,
+            Some(vec![String::from("Second commit")])
+        );
+        assert_eq!(branches[0].time, now_in_seconds as i64);
+        assert_eq!(branches[1].name, Some(String::from("other")));
+        assert_eq!(
+            branches[1].message,
+            Some(vec![String::from("Third commit")])
+        );
+        assert_eq!(branches[1].time, now_in_seconds as i64);
     }
 }
