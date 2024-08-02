@@ -302,13 +302,10 @@ mod tests {
             use_file_store,
             require_complete_tree,
         };
-        let git = config::GitConfig {
-            default_branch: None,
-        };
         config::Config {
             location,
             core,
-            git,
+            git: None,
         }
     }
 
