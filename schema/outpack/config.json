@@ -50,10 +50,9 @@
             "type": "object",
             "properties": {
                 "default_branch": {
-                    "type": ["null", "string"]
+                    "type": "string"
                 }
             },
-            "required": ["default_branch"],
             "additionalProperties": false
         }
     },

@@ -32,7 +32,7 @@ pub struct GitConfig {
 pub struct Config {
     pub core: Core,
     pub location: Vec<Location>,
-    pub git: GitConfig,
+    pub git: Option<GitConfig>,
 }
 
 impl Config {
@@ -55,13 +55,10 @@ impl Config {
             require_complete_tree,
         };
         let location: Vec<Location> = Vec::new();
-        let git = GitConfig {
-            default_branch: None,
-        };
         Ok(Config {
             core,
             location,
-            git,
+            git: None,
         })
     }
 }
@@ -94,7 +91,7 @@ mod tests {
         assert!(cfg.core.use_file_store);
         assert!(cfg.core.require_complete_tree);
         assert!(cfg.core.path_archive.is_none());
-        assert!(cfg.git.default_branch.is_none());
+        assert!(cfg.git.is_none());
     }
 
     #[test]
