@@ -130,9 +130,9 @@ mod tests {
         std::fs::create_dir(outpack_path).unwrap();
 
         let cfg = Config::new(None, true, true).unwrap();
-        write_config(&cfg, &remote_path).unwrap();
+        write_config(&cfg, remote_path).unwrap();
 
-        let branch_response = git_list_branches(&remote_path).unwrap();
+        let branch_response = git_list_branches(remote_path).unwrap();
         let now_in_seconds = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
@@ -173,9 +173,9 @@ mod tests {
         cfg.git = Some(GitConfig {
             default_branch: Some(String::from("other")),
         });
-        write_config(&cfg, &remote_path).unwrap();
+        write_config(&cfg, remote_path).unwrap();
 
-        let branch_response = git_list_branches(&remote_path).unwrap();
+        let branch_response = git_list_branches(remote_path).unwrap();
         let now_in_seconds = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
