@@ -166,7 +166,7 @@ async fn git_fetch(root: State<PathBuf>) -> Result<OutpackSuccess<()>, OutpackEr
 
 async fn git_list_branches(
     root: State<PathBuf>,
-) -> Result<OutpackSuccess<Vec<git::BranchInfo>>, OutpackError> {
+) -> Result<OutpackSuccess<git::BranchResponse>, OutpackError> {
     git::git_list_branches(&root)
         .map_err(OutpackError::from)
         .map(OutpackSuccess::from)
@@ -302,7 +302,11 @@ mod tests {
             use_file_store,
             require_complete_tree,
         };
-        config::Config { location, core }
+        config::Config {
+            location,
+            core,
+            git: None,
+        }
     }
 
     #[test]
