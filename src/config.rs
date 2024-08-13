@@ -24,15 +24,9 @@ pub struct Core {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
-pub struct GitConfig {
-    pub default_branch: Option<String>,
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct Config {
     pub core: Core,
     pub location: Vec<Location>,
-    pub git: Option<GitConfig>,
 }
 
 impl Config {
@@ -58,7 +52,6 @@ impl Config {
         Ok(Config {
             core,
             location,
-            git: None,
         })
     }
 }
@@ -91,7 +84,6 @@ mod tests {
         assert!(cfg.core.use_file_store);
         assert!(cfg.core.require_complete_tree);
         assert!(cfg.core.path_archive.is_none());
-        assert!(cfg.git.is_none());
     }
 
     #[test]

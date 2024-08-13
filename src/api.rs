@@ -305,7 +305,6 @@ mod tests {
         config::Config {
             location,
             core,
-            git: None,
         }
     }
 
