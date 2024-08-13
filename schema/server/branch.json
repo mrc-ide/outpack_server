@@ -4,7 +4,7 @@
   "type": "object",
   "properties": {
     "name": {
-      "type": ["null", "string"]
+      "type": "string"
     },
     "commit_hash": {
       "type": "string"
@@ -13,15 +13,10 @@
       "type": "number"
     },
     "message": {
-      "oneOf": [
-        { "type": "null" },
-        {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        }
-      ]
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
     }
   },
   "required": ["name", "commit_hash", "time", "message"],
