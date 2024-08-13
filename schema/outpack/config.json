@@ -44,16 +44,6 @@
                 },
                 "required": ["name", "type", "args"]
             }
-        },
-
-        "git": {
-            "type": "object",
-            "properties": {
-                "default_branch": {
-                    "type": "string"
-                }
-            },
-            "additionalProperties": false
         }
     },
 
