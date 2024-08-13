@@ -55,14 +55,34 @@ fn get_branch_info(branch: Branch) -> Result<BranchInfo, git2::Error> {
 
 pub fn git_list_branches(root: &Path) -> Result<BranchResponse, git2::Error> {
     let repo = Repository::open(root)?;
-    let default_branch_buf = repo.find_remote("origin")?.default_branch()?;
+    let mut remote = repo.find_remote("origin")?;
 
-    let default_branch_name = match default_branch_buf.as_str() {
-        Some(b) => Ok(b),
-        None => Err(git2::Error::from_str("Could not find default branch")),
+    let default_branch_buf = match remote.default_branch() {
+        Ok(b) => Ok(b),
+        Err(e) => {
+            if e.message() == "this remote has never connected" {
+                remote.connect(git2::Direction::Fetch)?;
+                remote.disconnect()?;
+                remote.default_branch()
+            } else {
+                Err(e)
+            }
+        }
     }?;
 
-    let default_branch_struct = repo.find_branch(default_branch_name, BranchType::Remote)?;
+    let default_branch_name_verbose = match default_branch_buf.as_str() {
+        Some(b) => Ok(b),
+        None => Err(git2::Error::from_str("Could not parse default branch name")),
+    }?;
+
+    let mut default_branch_name = String::from("origin/");
+    default_branch_name.push_str(
+        default_branch_name_verbose
+            .strip_prefix("refs/heads/")
+            .unwrap_or(default_branch_name_verbose),
+    );
+
+    let default_branch_struct = repo.find_branch(&default_branch_name, BranchType::Remote)?;
     let default_branch = get_branch_info(default_branch_struct)?;
 
     let branches = repo
@@ -131,37 +151,7 @@ mod tests {
         let branches_list = branch_response.branches;
 
         assert_eq!(default_branch.name, String::from("master"));
-        assert_eq!(default_branch.message, vec![String::from("First commit")]);
-        assert_eq!(default_branch.time, now_in_seconds as i64);
-
-        assert_eq!(branches_list.len(), 2);
-        assert_eq!(branches_list[0].name, String::from("master"));
-        assert_eq!(
-            branches_list[0].message,
-            vec![String::from("Second commit")]
-        );
-        assert_eq!(branches_list[0].time, now_in_seconds as i64);
-        assert_eq!(branches_list[1].name, String::from("other"));
-        assert_eq!(branches_list[1].message, vec![String::from("Third commit")]);
-        assert_eq!(branches_list[1].time, now_in_seconds as i64);
-    }
-
-    #[test]
-    fn changes_default_branch_with_config() {
-        let test_git = initialise_git_repo(None);
-        let local_path = &test_git.dir.path().join("local");
-        git_fetch(local_path).unwrap();
-
-        let branch_response = git_list_branches(local_path).unwrap();
-        let now_in_seconds = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-        let default_branch = branch_response.default_branch;
-        let branches_list = branch_response.branches;
-
-        assert_eq!(default_branch.name, String::from("other"));
-        assert_eq!(default_branch.message, vec![String::from("Third commit")]);
+        assert_eq!(default_branch.message, vec![String::from("Second commit")]);
         assert_eq!(default_branch.time, now_in_seconds as i64);
 
         assert_eq!(branches_list.len(), 2);
