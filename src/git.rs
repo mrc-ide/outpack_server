@@ -120,7 +120,7 @@ mod tests {
     fn can_list_git_branches() {
         let test_git = initialise_git_repo(None);
         let local_path = &test_git.dir.path().join("local");
-        git_fetch(&local_path).unwrap();
+        git_fetch(local_path).unwrap();
 
         let branch_response = git_list_branches(local_path).unwrap();
         let now_in_seconds = SystemTime::now()
@@ -150,7 +150,7 @@ mod tests {
     fn changes_default_branch_with_config() {
         let test_git = initialise_git_repo(None);
         let local_path = &test_git.dir.path().join("local");
-        git_fetch(&local_path).unwrap();
+        git_fetch(local_path).unwrap();
 
         let branch_response = git_list_branches(local_path).unwrap();
         let now_in_seconds = SystemTime::now()
