@@ -302,10 +302,7 @@ mod tests {
             use_file_store,
             require_complete_tree,
         };
-        config::Config {
-            location,
-            core,
-        }
+        config::Config { location, core }
     }
 
     #[test]

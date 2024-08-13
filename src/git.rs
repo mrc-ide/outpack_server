@@ -59,7 +59,7 @@ pub fn git_list_branches(root: &Path) -> Result<BranchResponse, git2::Error> {
 
     let default_branch_name = match default_branch_buf.as_str() {
         Some(b) => Ok(b),
-        None => Err(git2::Error::from_str("Could not find default branch"))
+        None => Err(git2::Error::from_str("Could not find default branch")),
     }?;
 
     let default_branch_struct = repo.find_branch(default_branch_name, BranchType::Remote)?;
@@ -131,10 +131,7 @@ mod tests {
         let branches_list = branch_response.branches;
 
         assert_eq!(default_branch.name, String::from("master"));
-        assert_eq!(
-            default_branch.message,
-            vec![String::from("First commit")]
-        );
+        assert_eq!(default_branch.message, vec![String::from("First commit")]);
         assert_eq!(default_branch.time, now_in_seconds as i64);
 
         assert_eq!(branches_list.len(), 2);
@@ -145,10 +142,7 @@ mod tests {
         );
         assert_eq!(branches_list[0].time, now_in_seconds as i64);
         assert_eq!(branches_list[1].name, String::from("other"));
-        assert_eq!(
-            branches_list[1].message,
-            vec![String::from("Third commit")]
-        );
+        assert_eq!(branches_list[1].message, vec![String::from("Third commit")]);
         assert_eq!(branches_list[1].time, now_in_seconds as i64);
     }
 
@@ -167,10 +161,7 @@ mod tests {
         let branches_list = branch_response.branches;
 
         assert_eq!(default_branch.name, String::from("other"));
-        assert_eq!(
-            default_branch.message,
-            vec![String::from("Third commit")]
-        );
+        assert_eq!(default_branch.message, vec![String::from("Third commit")]);
         assert_eq!(default_branch.time, now_in_seconds as i64);
 
         assert_eq!(branches_list.len(), 2);
@@ -181,10 +172,7 @@ mod tests {
         );
         assert_eq!(branches_list[0].time, now_in_seconds as i64);
         assert_eq!(branches_list[1].name, String::from("other"));
-        assert_eq!(
-            branches_list[1].message,
-            vec![String::from("Third commit")]
-        );
+        assert_eq!(branches_list[1].message, vec![String::from("Third commit")]);
         assert_eq!(branches_list[1].time, now_in_seconds as i64);
     }
 }

@@ -49,10 +49,7 @@ impl Config {
             require_complete_tree,
         };
         let location: Vec<Location> = Vec::new();
-        Ok(Config {
-            core,
-            location,
-        })
+        Ok(Config { core, location })
     }
 }
 
