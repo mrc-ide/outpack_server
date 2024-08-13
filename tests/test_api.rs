@@ -780,7 +780,13 @@ async fn can_list_git_branches() {
         .unwrap()
         .as_secs();
 
-    let mut client = TestClient::new(test_git.dir.path().join("remote"));
+    let mut client = TestClient::new(test_git.dir.path().join("local"));
+
+    let response_fetch = client
+        .post("/git/fetch", mime::APPLICATION_JSON, Body::empty())
+        .await;
+    assert_eq!(response_fetch.status(), StatusCode::OK);
+    assert_eq!(response_fetch.content_type(), mime::APPLICATION_JSON);
 
     let response = client.get("/git/branches").await;
     assert_eq!(response.status(), StatusCode::OK);

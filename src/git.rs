@@ -3,8 +3,6 @@ use std::path::Path;
 use git2::{Branch, BranchType, Repository};
 use serde::{Deserialize, Serialize};
 
-use crate::config::{read_config, GitConfig};
-
 pub fn git_fetch(root: &Path) -> Result<(), git2::Error> {
     let repo = Repository::open(root)?;
     let mut remote = repo.find_remote("origin")?;
@@ -22,10 +20,10 @@ pub struct BranchResponse {
 
 #[derive(Serialize, Deserialize)]
 pub struct BranchInfo {
-    name: Option<String>,
+    name: String,
     commit_hash: String,
     time: i64,
-    message: Option<Vec<String>>,
+    message: Vec<String>,
 }
 
 fn get_branch_struct(
@@ -35,14 +33,17 @@ fn get_branch_struct(
 }
 
 fn get_branch_info(branch: Branch) -> Result<BranchInfo, git2::Error> {
-    let name = branch.name()?.map(String::from);
+    let lossy_name = String::from_utf8_lossy(branch.name_bytes()?);
+    let name = lossy_name
+        .strip_prefix("origin/")
+        .unwrap_or(&lossy_name)
+        .to_owned();
 
     let branch_commit = branch.into_reference().peel_to_commit()?;
-    let message = branch_commit.message().map(|s| {
-        s.split_terminator("\n")
-            .map(String::from)
-            .collect::<Vec<String>>()
-    });
+    let message: Vec<String> = String::from_utf8_lossy(branch_commit.message_bytes())
+        .split_terminator("\n")
+        .map(String::from)
+        .collect();
 
     Ok(BranchInfo {
         name,
@@ -52,28 +53,23 @@ fn get_branch_info(branch: Branch) -> Result<BranchInfo, git2::Error> {
     })
 }
 
-fn io_err_to_git_err(err: std::io::Error) -> git2::Error {
-    git2::Error::from_str(&err.to_string())
-}
-
 pub fn git_list_branches(root: &Path) -> Result<BranchResponse, git2::Error> {
     let repo = Repository::open(root)?;
+    let default_branch_buf = repo.find_remote("origin")?.default_branch()?;
 
-    let git_cfg = read_config(root).map_err(io_err_to_git_err)?.git;
-
-    let default_branch_struct = match git_cfg {
-        Some(GitConfig {
-            default_branch: Some(b),
-        }) => repo.find_branch(&b, BranchType::Local),
-        _ => repo
-            .find_branch("main", BranchType::Local)
-            .or_else(|_| repo.find_branch("master", BranchType::Local)),
+    let default_branch_name = match default_branch_buf.as_str() {
+        Some(b) => Ok(b),
+        None => Err(git2::Error::from_str("Could not find default branch"))
     }?;
 
+    let default_branch_struct = repo.find_branch(default_branch_name, BranchType::Remote)?;
     let default_branch = get_branch_info(default_branch_struct)?;
 
     let branches = repo
-        .branches(Some(BranchType::Local))?
+        .branches(Some(BranchType::Remote))?
+        // first branch seems to be HEAD, we don't want to display that to the
+        // users so skip it
+        .skip(1)
         .map(get_branch_struct)
         .collect::<Result<Vec<Branch>, git2::Error>>()?
         .into_iter()
@@ -91,8 +87,6 @@ mod tests {
     use std::time::SystemTime;
 
     use test_utils::{git_get_latest_commit, git_remote_branches, initialise_git_repo};
-
-    use crate::config::{write_config, Config, GitConfig};
 
     use super::*;
 
@@ -125,14 +119,10 @@ mod tests {
     #[test]
     fn can_list_git_branches() {
         let test_git = initialise_git_repo(None);
-        let remote_path = &test_git.dir.path().join("remote");
-        let outpack_path = &remote_path.join(".outpack");
-        std::fs::create_dir(outpack_path).unwrap();
+        let local_path = &test_git.dir.path().join("local");
+        git_fetch(&local_path).unwrap();
 
-        let cfg = Config::new(None, true, true).unwrap();
-        write_config(&cfg, remote_path).unwrap();
-
-        let branch_response = git_list_branches(remote_path).unwrap();
+        let branch_response = git_list_branches(local_path).unwrap();
         let now_in_seconds = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
@@ -140,24 +130,24 @@ mod tests {
         let default_branch = branch_response.default_branch;
         let branches_list = branch_response.branches;
 
-        assert_eq!(default_branch.name, Some(String::from("master")));
+        assert_eq!(default_branch.name, String::from("master"));
         assert_eq!(
             default_branch.message,
-            Some(vec![String::from("Second commit")])
+            vec![String::from("First commit")]
         );
         assert_eq!(default_branch.time, now_in_seconds as i64);
 
         assert_eq!(branches_list.len(), 2);
-        assert_eq!(branches_list[0].name, Some(String::from("master")));
+        assert_eq!(branches_list[0].name, String::from("master"));
         assert_eq!(
             branches_list[0].message,
-            Some(vec![String::from("Second commit")])
+            vec![String::from("Second commit")]
         );
         assert_eq!(branches_list[0].time, now_in_seconds as i64);
-        assert_eq!(branches_list[1].name, Some(String::from("other")));
+        assert_eq!(branches_list[1].name, String::from("other"));
         assert_eq!(
             branches_list[1].message,
-            Some(vec![String::from("Third commit")])
+            vec![String::from("Third commit")]
         );
         assert_eq!(branches_list[1].time, now_in_seconds as i64);
     }
@@ -165,17 +155,10 @@ mod tests {
     #[test]
     fn changes_default_branch_with_config() {
         let test_git = initialise_git_repo(None);
-        let remote_path = &test_git.dir.path().join("remote");
-        let outpack_path = &remote_path.join(".outpack");
-        std::fs::create_dir(outpack_path).unwrap();
+        let local_path = &test_git.dir.path().join("local");
+        git_fetch(&local_path).unwrap();
 
-        let mut cfg = Config::new(None, true, true).unwrap();
-        cfg.git = Some(GitConfig {
-            default_branch: Some(String::from("other")),
-        });
-        write_config(&cfg, remote_path).unwrap();
-
-        let branch_response = git_list_branches(remote_path).unwrap();
+        let branch_response = git_list_branches(local_path).unwrap();
         let now_in_seconds = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
@@ -183,24 +166,24 @@ mod tests {
         let default_branch = branch_response.default_branch;
         let branches_list = branch_response.branches;
 
-        assert_eq!(default_branch.name, Some(String::from("other")));
+        assert_eq!(default_branch.name, String::from("other"));
         assert_eq!(
             default_branch.message,
-            Some(vec![String::from("Third commit")])
+            vec![String::from("Third commit")]
         );
         assert_eq!(default_branch.time, now_in_seconds as i64);
 
         assert_eq!(branches_list.len(), 2);
-        assert_eq!(branches_list[0].name, Some(String::from("master")));
+        assert_eq!(branches_list[0].name, String::from("master"));
         assert_eq!(
             branches_list[0].message,
-            Some(vec![String::from("Second commit")])
+            vec![String::from("Second commit")]
         );
         assert_eq!(branches_list[0].time, now_in_seconds as i64);
-        assert_eq!(branches_list[1].name, Some(String::from("other")));
+        assert_eq!(branches_list[1].name, String::from("other"));
         assert_eq!(
             branches_list[1].message,
-            Some(vec![String::from("Third commit")])
+            vec![String::from("Third commit")]
         );
         assert_eq!(branches_list[1].time, now_in_seconds as i64);
     }
