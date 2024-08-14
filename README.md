@@ -304,22 +304,30 @@ Returns an array of branches with their `name`, `commit_hash` (where branch poin
 
 ```
 {
-  "status": "success",
-  "data": [
-    {
-      "name": "main",
-      "commit_hash": "ede307e23b2137ba2c7c3270e52f354f224942af",
-      "time": 1722436575,
-      "message": ["First commit"]
+    "status": "success",
+    "data": {
+        "default_branch": {
+            "name": "main",
+            "commit_hash": "ede307e23b2137ba2c7c3270e52f354f224942af",
+            "time": 1722436575,
+            "message": ["First commit"]
+        },
+        "branches": [
+            {
+              "name": "main",
+              "commit_hash": "ede307e23b2137ba2c7c3270e52f354f224942af",
+              "time": 1722436575,
+              "message": ["First commit"]
+            },
+            {
+              "name": "other",
+              "commit_hash": "e9078cf779584168c3781379380a3b1352545cda",
+              "time": 1722436640,
+              "message": ["Second commit"]
+            }
+        ]
     },
-    {
-      "name": "other",
-      "commit_hash": "e9078cf779584168c3781379380a3b1352545cda",
-      "time": 1722436640,
-      "message": ["Second commit"]
-    }
-  ],
-  "errors": null
+    "errors": null
 }
 ```
 
