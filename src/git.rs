@@ -32,12 +32,16 @@ fn get_branch_struct(
     Ok(branch_struct?.0)
 }
 
-fn get_branch_info(branch: Branch) -> Result<BranchInfo, git2::Error> {
+fn get_branch_name(branch: &Branch) -> Result<String, git2::Error> {
     let lossy_name = String::from_utf8_lossy(branch.name_bytes()?);
-    let name = lossy_name
+    Ok(lossy_name
         .strip_prefix("origin/")
         .unwrap_or(&lossy_name)
-        .to_owned();
+        .to_owned())
+}
+
+fn get_branch_info(branch: Branch) -> Result<BranchInfo, git2::Error> {
+    let name = get_branch_name(&branch)?;
 
     let branch_commit = branch.into_reference().peel_to_commit()?;
     let message: Vec<String> = String::from_utf8_lossy(branch_commit.message_bytes())
@@ -87,12 +91,10 @@ pub fn git_list_branches(root: &Path) -> Result<BranchResponse, git2::Error> {
 
     let branches = repo
         .branches(Some(BranchType::Remote))?
-        // first branch seems to be HEAD, we don't want to display that to the
-        // users so skip it
-        .skip(1)
         .map(get_branch_struct)
         .collect::<Result<Vec<Branch>, git2::Error>>()?
         .into_iter()
+        .filter(|b| get_branch_name(b) != Ok(String::from("HEAD")))
         .map(get_branch_info)
         .collect::<Result<Vec<BranchInfo>, git2::Error>>()?;
 
