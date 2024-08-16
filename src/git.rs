@@ -42,7 +42,7 @@ fn get_branch_info(branch: Branch) -> Result<BranchInfo, git2::Error> {
         name,
         commit_hash: branch_commit.id().to_string(),
         time: branch_commit.time().seconds(),
-        message
+        message,
     })
 }
 
@@ -68,7 +68,7 @@ pub fn git_list_branches(root: &Path) -> Result<BranchResponse, git2::Error> {
 
     Ok(BranchResponse {
         default_branch,
-        branches
+        branches,
     })
 }
 
