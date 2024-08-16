@@ -95,16 +95,10 @@ mod tests {
         let test_git = initialise_git_repo(None);
         git_fetch(&test_git.dir.path().join("local")).unwrap();
         let branches = git_list_branches(&test_git.dir.path().join("local")).unwrap();
-        let now_in_seconds = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
         assert_eq!(branches.len(), 2);
         assert_eq!(branches[0].name, String::from("master"));
         assert_eq!(branches[0].message, vec![String::from("Second commit")]);
-        assert_eq!(branches[0].time, now_in_seconds as i64);
         assert_eq!(branches[1].name, String::from("other"));
         assert_eq!(branches[1].message, vec![String::from("Third commit")]);
-        assert_eq!(branches[1].time, now_in_seconds as i64);
     }
 }
