@@ -31,14 +31,15 @@ fn get_branch_info(branch: Branch) -> Result<BranchInfo, git2::Error> {
     let lossy_name = String::from_utf8_lossy(git_ref.name_bytes());
     let name = lossy_name
         .strip_prefix("refs/remotes/origin/")
-        .unwrap_or(&lossy_name);
+        .unwrap_or(&lossy_name)
+        .to_owned();
     let branch_commit = git_ref.peel_to_commit()?;
     let message: Vec<String> = String::from_utf8_lossy(branch_commit.message_bytes())
         .split_terminator("\n")
         .map(String::from)
         .collect();
     Ok(BranchInfo {
-        name: name.to_string(),
+        name,
         commit_hash: branch_commit.id().to_string(),
         time: branch_commit.time().seconds(),
         message
