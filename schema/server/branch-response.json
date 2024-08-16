@@ -4,7 +4,10 @@
   "type": "object",
   "properties": {
     "default_branch": {
-      "$ref": "branch.json"
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "branch.json" }
+      ]
     },
     "branches": {
       "type": "array",

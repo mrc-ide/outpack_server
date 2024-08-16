@@ -14,11 +14,11 @@ pub fn git_fetch(root: &Path) -> Result<(), git2::Error> {
 
 #[derive(Serialize, Deserialize)]
 pub struct BranchResponse {
-    default_branch: BranchInfo,
+    default_branch: Option<BranchInfo>,
     branches: Vec<BranchInfo>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct BranchInfo {
     name: String,
     commit_hash: String,
@@ -26,81 +26,48 @@ pub struct BranchInfo {
     message: Vec<String>,
 }
 
-fn get_branch_struct(
-    branch_struct: Result<(Branch, BranchType), git2::Error>,
-) -> Result<Branch, git2::Error> {
-    Ok(branch_struct?.0)
-}
-
-fn get_branch_name(branch: &Branch) -> Result<String, git2::Error> {
-    let lossy_name = String::from_utf8_lossy(branch.name_bytes()?);
-    Ok(lossy_name
-        .strip_prefix("origin/")
-        .unwrap_or(&lossy_name)
-        .to_owned())
-}
-
 fn get_branch_info(branch: Branch) -> Result<BranchInfo, git2::Error> {
-    let name = get_branch_name(&branch)?;
-
-    let branch_commit = branch.into_reference().peel_to_commit()?;
+    let git_ref = branch.get().resolve()?;
+    let lossy_name = String::from_utf8_lossy(git_ref.name_bytes());
+    let name = lossy_name
+        .strip_prefix("refs/remotes/origin/")
+        .unwrap_or(&lossy_name);
+    let branch_commit = git_ref.peel_to_commit()?;
     let message: Vec<String> = String::from_utf8_lossy(branch_commit.message_bytes())
         .split_terminator("\n")
         .map(String::from)
         .collect();
-
     Ok(BranchInfo {
-        name,
+        name: name.to_string(),
         commit_hash: branch_commit.id().to_string(),
         time: branch_commit.time().seconds(),
-        message,
+        message
     })
 }
 
 pub fn git_list_branches(root: &Path) -> Result<BranchResponse, git2::Error> {
     let repo = Repository::open(root)?;
-    let mut remote = repo.find_remote("origin")?;
 
-    let default_branch_buf = match remote.default_branch() {
-        Ok(b) => Ok(b),
-        Err(e) => {
-            if e.message() == "this remote has never connected" {
-                remote.connect(git2::Direction::Fetch)?;
-                remote.disconnect()?;
-                remote.default_branch()
-            } else {
-                Err(e)
-            }
-        }
-    }?;
-
-    let default_branch_name_verbose = match default_branch_buf.as_str() {
-        Some(b) => Ok(b),
-        None => Err(git2::Error::from_str("Could not parse default branch name")),
-    }?;
-
-    let mut default_branch_name = String::from("origin/");
-    default_branch_name.push_str(
-        default_branch_name_verbose
-            .strip_prefix("refs/heads/")
-            .unwrap_or(default_branch_name_verbose),
-    );
-
-    let default_branch_struct = repo.find_branch(&default_branch_name, BranchType::Remote)?;
-    let default_branch = get_branch_info(default_branch_struct)?;
+    let default_branch = repo
+        .find_branch("origin/HEAD", BranchType::Remote)
+        .ok()
+        .map(get_branch_info)
+        .transpose()?;
 
     let branches = repo
         .branches(Some(BranchType::Remote))?
-        .map(get_branch_struct)
-        .collect::<Result<Vec<Branch>, git2::Error>>()?
-        .into_iter()
-        .filter(|b| get_branch_name(b) != Ok(String::from("HEAD")))
-        .map(get_branch_info)
+        .filter(|branch_tuple| -> bool {
+            if let Ok((b, _)) = branch_tuple {
+                return b.name() != Ok(Some("origin/HEAD"));
+            }
+            true
+        })
+        .map(|branch_tuple| get_branch_info(branch_tuple?.0))
         .collect::<Result<Vec<BranchInfo>, git2::Error>>()?;
 
     Ok(BranchResponse {
         default_branch,
-        branches,
+        branches
     })
 }
 
@@ -149,7 +116,7 @@ mod tests {
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
             .as_secs();
-        let default_branch = branch_response.default_branch;
+        let default_branch = branch_response.default_branch.unwrap();
         let branches_list = branch_response.branches;
 
         assert_eq!(default_branch.name, String::from("master"));
