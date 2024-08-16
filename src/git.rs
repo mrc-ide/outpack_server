@@ -58,8 +58,6 @@ pub fn git_list_branches(root: &Path) -> Result<Vec<BranchInfo>, git2::Error> {
 
 #[cfg(test)]
 mod tests {
-    use std::time::SystemTime;
-
     use test_utils::{git_get_latest_commit, git_remote_branches, initialise_git_repo};
 
     use super::*;
