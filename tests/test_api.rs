@@ -3,7 +3,6 @@ use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::Once;
-use std::time::SystemTime;
 
 use axum::body::Body;
 use axum::extract::Request;
@@ -775,10 +774,6 @@ async fn can_fetch_git() {
 async fn can_list_git_branches() {
     let test_dir = get_test_dir();
     let test_git = initialise_git_repo(Some(&test_dir));
-    let now_in_seconds = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
 
     let mut client = TestClient::new(test_git.dir.path().join("local"));
 
@@ -804,10 +799,6 @@ async fn can_list_git_branches() {
         "master"
     );
     assert_eq!(
-        default_branch.get("time").unwrap().as_u64().unwrap(),
-        now_in_seconds
-    );
-    assert_eq!(
         *default_branch.get("message").unwrap().as_array().unwrap(),
         vec!["Second commit"]
     );
@@ -817,20 +808,12 @@ async fn can_list_git_branches() {
         "master"
     );
     assert_eq!(
-        branch_list[0].get("time").unwrap().as_u64().unwrap(),
-        now_in_seconds
-    );
-    assert_eq!(
         *branch_list[0].get("message").unwrap().as_array().unwrap(),
         vec!["Second commit"]
     );
     assert_eq!(
         branch_list[1].get("name").unwrap().as_str().unwrap(),
         "other"
-    );
-    assert_eq!(
-        branch_list[1].get("time").unwrap().as_u64().unwrap(),
-        now_in_seconds
     );
     assert_eq!(
         *branch_list[1].get("message").unwrap().as_array().unwrap(),

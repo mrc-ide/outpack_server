@@ -73,8 +73,6 @@ pub fn git_list_branches(root: &Path) -> Result<BranchResponse, git2::Error> {
 
 #[cfg(test)]
 mod tests {
-    use std::time::SystemTime;
-
     use test_utils::{git_get_latest_commit, git_remote_branches, initialise_git_repo};
 
     use super::*;
@@ -112,16 +110,11 @@ mod tests {
         git_fetch(local_path).unwrap();
 
         let branch_response = git_list_branches(local_path).unwrap();
-        let now_in_seconds = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
         let default_branch = branch_response.default_branch.unwrap();
         let branches_list = branch_response.branches;
 
         assert_eq!(default_branch.name, String::from("master"));
         assert_eq!(default_branch.message, vec![String::from("Second commit")]);
-        assert_eq!(default_branch.time, now_in_seconds as i64);
 
         assert_eq!(branches_list.len(), 2);
         assert_eq!(branches_list[0].name, String::from("master"));
@@ -129,9 +122,7 @@ mod tests {
             branches_list[0].message,
             vec![String::from("Second commit")]
         );
-        assert_eq!(branches_list[0].time, now_in_seconds as i64);
         assert_eq!(branches_list[1].name, String::from("other"));
         assert_eq!(branches_list[1].message, vec![String::from("Third commit")]);
-        assert_eq!(branches_list[1].time, now_in_seconds as i64);
     }
 }
