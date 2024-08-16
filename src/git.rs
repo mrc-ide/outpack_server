@@ -48,9 +48,12 @@ pub fn git_list_branches(root: &Path) -> Result<Vec<BranchInfo>, git2::Error> {
     let repo = Repository::open(root)?;
     let git_branches: Result<Vec<BranchInfo>, git2::Error> = repo
         .branches(Some(BranchType::Remote))?
-        // first branch seems to be HEAD, we don't want to display that to the
-        // users so skip it
-        .skip(1)
+        .filter(|branch_tuple| -> bool {
+            if let Ok((b, _)) = branch_tuple {
+                return b.name() != Ok(Some("origin/HEAD"));
+            }
+            true
+        })
         .map(get_branch_info)
         .collect();
     git_branches
