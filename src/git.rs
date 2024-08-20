@@ -1,6 +1,7 @@
 use std::path::Path;
 
-use git2::Repository;
+use git2::{Branch, BranchType, Repository};
+use serde::{Deserialize, Serialize};
 
 pub fn git_fetch(root: &Path) -> Result<(), git2::Error> {
     let repo = Repository::open(root)?;
@@ -9,6 +10,53 @@ pub fn git_fetch(root: &Path) -> Result<(), git2::Error> {
     let ref_specs: Vec<&str> = ref_specs_iter.iter().map(|spec| spec.unwrap()).collect();
     remote.fetch(&ref_specs, None, None)?;
     Ok(())
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct BranchInfo {
+    name: String,
+    commit_hash: String,
+    time: i64,
+    message: Vec<String>,
+}
+
+fn get_branch_info(
+    branch_struct: Result<(Branch, BranchType), git2::Error>,
+) -> Result<BranchInfo, git2::Error> {
+    let branch = branch_struct?.0;
+    let lossy_name = String::from_utf8_lossy(branch.name_bytes()?);
+    let name = lossy_name
+        .strip_prefix("origin/")
+        .unwrap_or(&lossy_name)
+        .to_owned();
+
+    let branch_commit = branch.into_reference().peel_to_commit()?;
+    let message: Vec<String> = String::from_utf8_lossy(branch_commit.message_bytes())
+        .split_terminator("\n")
+        .map(String::from)
+        .collect();
+
+    Ok(BranchInfo {
+        name,
+        commit_hash: branch_commit.id().to_string(),
+        time: branch_commit.time().seconds(),
+        message,
+    })
+}
+
+pub fn git_list_branches(root: &Path) -> Result<Vec<BranchInfo>, git2::Error> {
+    let repo = Repository::open(root)?;
+    let git_branches: Result<Vec<BranchInfo>, git2::Error> = repo
+        .branches(Some(BranchType::Remote))?
+        .filter(|branch_tuple| -> bool {
+            if let Ok((b, _)) = branch_tuple {
+                return b.name() != Ok(Some("origin/HEAD"));
+            }
+            true
+        })
+        .map(get_branch_info)
+        .collect();
+    git_branches
 }
 
 #[cfg(test)]
@@ -41,5 +89,17 @@ mod tests {
 
         let post_fetch_branches = git_remote_branches(&test_git.local);
         assert_eq!(post_fetch_branches.count(), 3); // HEAD, main and other
+    }
+
+    #[test]
+    fn can_list_git_branches() {
+        let test_git = initialise_git_repo(None);
+        git_fetch(&test_git.dir.path().join("local")).unwrap();
+        let branches = git_list_branches(&test_git.dir.path().join("local")).unwrap();
+        assert_eq!(branches.len(), 2);
+        assert_eq!(branches[0].name, String::from("master"));
+        assert_eq!(branches[0].message, vec![String::from("Second commit")]);
+        assert_eq!(branches[1].name, String::from("other"));
+        assert_eq!(branches[1].message, vec![String::from("Third commit")]);
     }
 }

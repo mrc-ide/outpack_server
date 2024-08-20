@@ -770,6 +770,40 @@ async fn can_fetch_git() {
     assert_eq!(post_fetch_branches.count(), 3); // HEAD, main and other
 }
 
+#[tokio::test]
+async fn can_list_git_branches() {
+    let test_dir = get_test_dir();
+    let test_git = initialise_git_repo(Some(&test_dir));
+
+    let mut client = TestClient::new(test_git.dir.path().join("local"));
+
+    let response_fetch = client
+        .post("/git/fetch", mime::APPLICATION_JSON, Body::empty())
+        .await;
+    assert_eq!(response_fetch.status(), StatusCode::OK);
+    assert_eq!(response_fetch.content_type(), mime::APPLICATION_JSON);
+
+    let response = client.get("/git/branches").await;
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.content_type(), mime::APPLICATION_JSON);
+
+    let body = response.to_json().await;
+    validate_success("server", "branches.json", &body);
+
+    let entries = body.get("data").unwrap().as_array().unwrap();
+
+    assert_eq!(entries[0].get("name").unwrap().as_str().unwrap(), "master");
+    assert_eq!(
+        *entries[0].get("message").unwrap().as_array().unwrap(),
+        vec!["Second commit"]
+    );
+    assert_eq!(entries[1].get("name").unwrap().as_str().unwrap(), "other");
+    assert_eq!(
+        *entries[1].get("message").unwrap().as_array().unwrap(),
+        vec!["Third commit"]
+    );
+}
+
 fn validate_success(schema_group: &str, schema_name: &str, instance: &Value) {
     let compiled_schema = get_schema("server", "response-success.json");
     assert_valid(instance, &compiled_schema);
