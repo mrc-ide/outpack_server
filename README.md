@@ -306,12 +306,7 @@ Returns an array of branches with their `name`, `commit_hash` (where branch poin
 {
     "status": "success",
     "data": {
-        "default_branch": {
-            "name": "main",
-            "commit_hash": "ede307e23b2137ba2c7c3270e52f354f224942af",
-            "time": 1722436575,
-            "message": ["First commit"]
-        },
+        "default_branch": "main",
         "branches": [
             {
               "name": "main",
