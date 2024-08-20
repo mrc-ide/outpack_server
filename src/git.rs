@@ -26,7 +26,7 @@ pub struct BranchInfo {
     message: Vec<String>,
 }
 
-fn get_branch_name<'a>(reference: &'a Reference) -> String {
+fn get_branch_name(reference: &Reference) -> String {
     let lossy_name = String::from_utf8_lossy(reference.name_bytes());
     lossy_name
         .strip_prefix("refs/remotes/origin/")
