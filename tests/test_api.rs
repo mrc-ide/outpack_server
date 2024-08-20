@@ -791,17 +791,10 @@ async fn can_list_git_branches() {
     validate_success("server", "branch-response.json", &body);
 
     let entries = body.get("data").unwrap().as_object().unwrap();
-    let default_branch = entries.get("default_branch").unwrap().as_object().unwrap();
+    let default_branch = entries.get("default_branch").unwrap().as_str().unwrap();
     let branch_list = entries.get("branches").unwrap().as_array().unwrap();
 
-    assert_eq!(
-        default_branch.get("name").unwrap().as_str().unwrap(),
-        "master"
-    );
-    assert_eq!(
-        *default_branch.get("message").unwrap().as_array().unwrap(),
-        vec!["Second commit"]
-    );
+    assert_eq!(default_branch, "master");
 
     assert_eq!(
         branch_list[0].get("name").unwrap().as_str().unwrap(),

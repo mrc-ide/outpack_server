@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use git2::{Branch, BranchType, Repository};
+use git2::{Branch, BranchType, Reference, Repository};
 use serde::{Deserialize, Serialize};
 
 pub fn git_fetch(root: &Path) -> Result<(), git2::Error> {
@@ -14,7 +14,7 @@ pub fn git_fetch(root: &Path) -> Result<(), git2::Error> {
 
 #[derive(Serialize, Deserialize)]
 pub struct BranchResponse {
-    default_branch: Option<BranchInfo>,
+    default_branch: Option<String>,
     branches: Vec<BranchInfo>,
 }
 
@@ -26,13 +26,17 @@ pub struct BranchInfo {
     message: Vec<String>,
 }
 
+fn get_branch_name<'a>(reference: &'a Reference) -> String {
+    let lossy_name = String::from_utf8_lossy(reference.name_bytes());
+    lossy_name
+        .strip_prefix("refs/remotes/origin/")
+        .unwrap_or_else(|| &lossy_name)
+        .to_string()
+}
+
 fn get_branch_info(branch: Branch) -> Result<BranchInfo, git2::Error> {
     let git_ref = branch.get().resolve()?;
-    let lossy_name = String::from_utf8_lossy(git_ref.name_bytes());
-    let name = lossy_name
-        .strip_prefix("refs/remotes/origin/")
-        .unwrap_or(&lossy_name)
-        .to_owned();
+    let name = get_branch_name(&git_ref);
     let branch_commit = git_ref.peel_to_commit()?;
     let message: Vec<String> = String::from_utf8_lossy(branch_commit.message_bytes())
         .split_terminator("\n")
@@ -52,7 +56,10 @@ pub fn git_list_branches(root: &Path) -> Result<BranchResponse, git2::Error> {
     let default_branch = repo
         .find_branch("origin/HEAD", BranchType::Remote)
         .ok()
-        .map(get_branch_info)
+        .map(|b| -> Result<String, git2::Error> {
+            let git_ref = b.get().resolve()?;
+            Ok(get_branch_name(&git_ref))
+        })
         .transpose()?;
 
     let branches = repo
@@ -114,8 +121,7 @@ mod tests {
         let default_branch = branch_response.default_branch.unwrap();
         let branches_list = branch_response.branches;
 
-        assert_eq!(default_branch.name, String::from("master"));
-        assert_eq!(default_branch.message, vec![String::from("Second commit")]);
+        assert_eq!(default_branch, String::from("master"));
 
         assert_eq!(branches_list.len(), 2);
         assert_eq!(branches_list[0].name, String::from("master"));
