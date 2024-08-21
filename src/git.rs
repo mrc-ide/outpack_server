@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use git2::{Branch, BranchType, Repository};
+use git2::{Branch, BranchType, Reference, Repository};
 use serde::{Deserialize, Serialize};
 
 pub fn git_fetch(root: &Path) -> Result<(), git2::Error> {
@@ -13,6 +13,12 @@ pub fn git_fetch(root: &Path) -> Result<(), git2::Error> {
 }
 
 #[derive(Serialize, Deserialize)]
+pub struct BranchResponse {
+    default_branch: Option<String>,
+    branches: Vec<BranchInfo>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 pub struct BranchInfo {
     name: String,
     commit_hash: String,
@@ -20,22 +26,22 @@ pub struct BranchInfo {
     message: Vec<String>,
 }
 
-fn get_branch_info(
-    branch_struct: Result<(Branch, BranchType), git2::Error>,
-) -> Result<BranchInfo, git2::Error> {
-    let branch = branch_struct?.0;
-    let lossy_name = String::from_utf8_lossy(branch.name_bytes()?);
-    let name = lossy_name
-        .strip_prefix("origin/")
-        .unwrap_or(&lossy_name)
-        .to_owned();
+fn get_branch_name(reference: &Reference) -> String {
+    let lossy_name = String::from_utf8_lossy(reference.name_bytes());
+    lossy_name
+        .strip_prefix("refs/remotes/origin/")
+        .unwrap_or_else(|| &lossy_name)
+        .to_string()
+}
 
-    let branch_commit = branch.into_reference().peel_to_commit()?;
+fn get_branch_info(branch: Branch) -> Result<BranchInfo, git2::Error> {
+    let git_ref = branch.get().resolve()?;
+    let name = get_branch_name(&git_ref);
+    let branch_commit = git_ref.peel_to_commit()?;
     let message: Vec<String> = String::from_utf8_lossy(branch_commit.message_bytes())
         .split_terminator("\n")
         .map(String::from)
         .collect();
-
     Ok(BranchInfo {
         name,
         commit_hash: branch_commit.id().to_string(),
@@ -44,9 +50,19 @@ fn get_branch_info(
     })
 }
 
-pub fn git_list_branches(root: &Path) -> Result<Vec<BranchInfo>, git2::Error> {
+pub fn git_list_branches(root: &Path) -> Result<BranchResponse, git2::Error> {
     let repo = Repository::open(root)?;
-    let git_branches: Result<Vec<BranchInfo>, git2::Error> = repo
+
+    let default_branch = repo
+        .find_branch("origin/HEAD", BranchType::Remote)
+        .ok()
+        .map(|b| -> Result<String, git2::Error> {
+            let git_ref = b.get().resolve()?;
+            Ok(get_branch_name(&git_ref))
+        })
+        .transpose()?;
+
+    let branches = repo
         .branches(Some(BranchType::Remote))?
         .filter(|branch_tuple| -> bool {
             if let Ok((b, _)) = branch_tuple {
@@ -54,9 +70,13 @@ pub fn git_list_branches(root: &Path) -> Result<Vec<BranchInfo>, git2::Error> {
             }
             true
         })
-        .map(get_branch_info)
-        .collect();
-    git_branches
+        .map(|branch_tuple| get_branch_info(branch_tuple?.0))
+        .collect::<Result<Vec<BranchInfo>, git2::Error>>()?;
+
+    Ok(BranchResponse {
+        default_branch,
+        branches,
+    })
 }
 
 #[cfg(test)]
@@ -94,12 +114,22 @@ mod tests {
     #[test]
     fn can_list_git_branches() {
         let test_git = initialise_git_repo(None);
-        git_fetch(&test_git.dir.path().join("local")).unwrap();
-        let branches = git_list_branches(&test_git.dir.path().join("local")).unwrap();
-        assert_eq!(branches.len(), 2);
-        assert_eq!(branches[0].name, String::from("master"));
-        assert_eq!(branches[0].message, vec![String::from("Second commit")]);
-        assert_eq!(branches[1].name, String::from("other"));
-        assert_eq!(branches[1].message, vec![String::from("Third commit")]);
+        let local_path = &test_git.dir.path().join("local");
+        git_fetch(local_path).unwrap();
+
+        let branch_response = git_list_branches(local_path).unwrap();
+        let default_branch = branch_response.default_branch.unwrap();
+        let branches_list = branch_response.branches;
+
+        assert_eq!(default_branch, String::from("master"));
+
+        assert_eq!(branches_list.len(), 2);
+        assert_eq!(branches_list[0].name, String::from("master"));
+        assert_eq!(
+            branches_list[0].message,
+            vec![String::from("Second commit")]
+        );
+        assert_eq!(branches_list[1].name, String::from("other"));
+        assert_eq!(branches_list[1].message, vec![String::from("Third commit")]);
     }
 }

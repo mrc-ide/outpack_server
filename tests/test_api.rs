@@ -788,18 +788,28 @@ async fn can_list_git_branches() {
     assert_eq!(response.content_type(), mime::APPLICATION_JSON);
 
     let body = response.to_json().await;
-    validate_success("server", "branches.json", &body);
+    validate_success("server", "branch-response.json", &body);
 
-    let entries = body.get("data").unwrap().as_array().unwrap();
+    let entries = body.get("data").unwrap().as_object().unwrap();
+    let default_branch = entries.get("default_branch").unwrap().as_str().unwrap();
+    let branch_list = entries.get("branches").unwrap().as_array().unwrap();
 
-    assert_eq!(entries[0].get("name").unwrap().as_str().unwrap(), "master");
+    assert_eq!(default_branch, "master");
+
     assert_eq!(
-        *entries[0].get("message").unwrap().as_array().unwrap(),
+        branch_list[0].get("name").unwrap().as_str().unwrap(),
+        "master"
+    );
+    assert_eq!(
+        *branch_list[0].get("message").unwrap().as_array().unwrap(),
         vec!["Second commit"]
     );
-    assert_eq!(entries[1].get("name").unwrap().as_str().unwrap(), "other");
     assert_eq!(
-        *entries[1].get("message").unwrap().as_array().unwrap(),
+        branch_list[1].get("name").unwrap().as_str().unwrap(),
+        "other"
+    );
+    assert_eq!(
+        *branch_list[1].get("message").unwrap().as_array().unwrap(),
         vec!["Third commit"]
     );
 }

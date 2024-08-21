@@ -166,7 +166,7 @@ async fn git_fetch(root: State<PathBuf>) -> Result<OutpackSuccess<()>, OutpackEr
 
 async fn git_list_branches(
     root: State<PathBuf>,
-) -> Result<OutpackSuccess<Vec<git::BranchInfo>>, OutpackError> {
+) -> Result<OutpackSuccess<git::BranchResponse>, OutpackError> {
     git::git_list_branches(&root)
         .map_err(OutpackError::from)
         .map(OutpackSuccess::from)
