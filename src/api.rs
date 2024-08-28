@@ -17,7 +17,9 @@ use tower_http::trace::TraceLayer;
 use crate::hash;
 use crate::location;
 use crate::metadata;
-use crate::metrics::{self, register_process_metrics, HttpMetrics, RepositoryMetrics};
+use crate::metrics::{
+    self, register_build_info_metrics, register_process_metrics, HttpMetrics, RepositoryMetrics,
+};
 use crate::outpack_file::OutpackFile;
 use crate::responses::{OutpackError, OutpackSuccess};
 use crate::store;
@@ -247,6 +249,7 @@ pub fn api(root: &Path) -> anyhow::Result<Router> {
 
     let registry = prometheus::Registry::new();
     register_process_metrics(&registry).expect("process metrics registered");
+    register_build_info_metrics(&registry).expect("build info metrics registered");
     RepositoryMetrics::register(&registry, root).expect("repository metrics registered");
     let http_metrics = HttpMetrics::register(&registry).expect("http metrics registered");
 
