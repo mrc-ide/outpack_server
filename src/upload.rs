@@ -56,7 +56,7 @@ impl Upload {
     pub fn persist(self, destination: &Path) -> std::io::Result<()> {
         match self {
             Upload::Buffered(data) => {
-                std::fs::write(destination, &data)?;
+                std::fs::write(destination, data)?;
             }
             Upload::File(path) => {
                 path.persist(destination)?;
