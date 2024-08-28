@@ -213,6 +213,19 @@ impl HttpMetrics {
     }
 }
 
+#[cfg(target_os = "linux")]
+pub fn register_process_metrics(registry: &Registry) -> prometheus::Result<()> {
+    use prometheus::process_collector::ProcessCollector;
+    registry.register(Box::new(ProcessCollector::for_self()))
+}
+
+#[cfg(not(target_os = "linux"))]
+pub fn register_process_metrics(_registry: &Registry) -> prometheus::Result<()> {
+    // The prometheus crate doesn't offer a process collector on platforms other
+    // than Linux
+    Ok(())
+}
+
 /// Render the metrics from a `prometheus::Registry` into an HTTP response.
 pub fn render(registry: Registry) -> impl IntoResponse {
     let mut buffer = vec![];
@@ -222,19 +235,6 @@ pub fn render(registry: Registry) -> impl IntoResponse {
 
     let headers = [(axum::http::header::CONTENT_TYPE, prometheus::TEXT_FORMAT)];
     (headers, buffer)
-}
-
-#[cfg(target_os = "linux")]
-pub fn register_process_metrics(registry: &Registry) -> prometheus::Result<()> {
-    use prometheus::process_collector::ProcessCollector;
-    registry.register(Box::new(ProcessCollector::for_self()))
-}
-
-#[cfg(not(target_os = "linux"))]
-pub fn register_process_metrics(registry: &Registry) -> prometheus::Result<()> {
-    // The prometheus crate doesn't offer a process collector on platforms other
-    // than Linux
-    Ok(())
 }
 
 #[cfg(test)]
