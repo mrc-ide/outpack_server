@@ -224,6 +224,19 @@ pub fn render(registry: Registry) -> impl IntoResponse {
     (headers, buffer)
 }
 
+#[cfg(target_os = "linux")]
+pub fn register_process_metrics(registry: &Registry) -> prometheus::Result<()> {
+    use prometheus::process_collector::ProcessCollector;
+    registry.register(Box::new(ProcessCollector::for_self()))
+}
+
+#[cfg(not(target_os = "linux"))]
+pub fn register_process_metrics(registry: &Registry) -> prometheus::Result<()> {
+    // The prometheus crate doesn't offer a process collector on platforms other
+    // than Linux
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
