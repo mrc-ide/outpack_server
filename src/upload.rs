@@ -53,14 +53,13 @@ impl Upload {
     ///
     /// The file is moved to the destination path. That path must be located on the same filesystem
     /// as the configured upload directory.
-    pub async fn persist(self, destination: &Path) -> std::io::Result<()> {
+    pub fn persist(self, destination: &Path) -> std::io::Result<()> {
         match self {
             Upload::Buffered(data) => {
-                tokio::fs::write(destination, &data).await?;
+                std::fs::write(destination, &data)?;
             }
             Upload::File(path) => {
-                let destination = destination.to_owned();
-                tokio::task::spawn_blocking(move || path.persist(destination).unwrap()).await?
+                path.persist(destination)?;
             }
         }
         Ok(())
@@ -156,7 +155,7 @@ mod tests {
         }
 
         let destination = root.as_ref().join("hello.txt");
-        upload.persist(&destination).await.unwrap();
+        upload.persist(&destination).unwrap();
 
         let contents = tokio::fs::read(&destination).await.unwrap();
         assert_eq!(contents, data);

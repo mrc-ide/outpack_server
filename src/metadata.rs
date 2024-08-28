@@ -289,6 +289,7 @@ mod tests {
     use crate::store::file_exists;
     use crate::test_utils::tests::{get_temp_outpack_root, start_packet};
     use crate::utils::time_as_num;
+    use md5::Md5;
     use serde_json::Value;
     use sha2::{Digest, Sha256};
 
@@ -336,7 +337,7 @@ mod tests {
         let digest = get_ids_digest(Path::new("tests/example"), None).unwrap();
         let dat = "20170818-164830-33e0ab0120170818-164847-7574883b20180220-095832-16a4bbed\
         20180818-164043-7cdcde4b";
-        let expected = format!("sha256:{:x}", Sha256::new().chain_update(dat).finalize());
+        let expected = format!("sha256:{:x}", Sha256::digest(dat));
         assert_eq!(digest, expected);
     }
 
@@ -345,7 +346,7 @@ mod tests {
         let digest = get_ids_digest(Path::new("tests/example"), Some(String::from("md5"))).unwrap();
         let dat = "20170818-164830-33e0ab0120170818-164847-7574883b20180220-095832-16a4bbed\
         20180818-164043-7cdcde4b";
-        let expected = format!("md5:{:x}", md5::compute(dat));
+        let expected = format!("md5:{:x}", Md5::digest(dat));
         assert_eq!(digest, expected);
     }
 
