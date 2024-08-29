@@ -17,7 +17,7 @@ use tower_http::trace::TraceLayer;
 use crate::hash;
 use crate::location;
 use crate::metadata;
-use crate::metrics;
+use crate::metrics::{self, register_process_metrics, HttpMetrics, RepositoryMetrics};
 use crate::outpack_file::OutpackFile;
 use crate::responses::{OutpackError, OutpackSuccess};
 use crate::store;
@@ -246,9 +246,9 @@ pub fn api(root: &Path) -> anyhow::Result<Router> {
     use axum::routing::{get, post};
 
     let registry = prometheus::Registry::new();
-
-    metrics::RepositoryMetrics::register(&registry, root).expect("repository metrics registered");
-    let http_metrics = metrics::HttpMetrics::register(&registry).expect("http metrics registered");
+    register_process_metrics(&registry).expect("process metrics registered");
+    RepositoryMetrics::register(&registry, root).expect("repository metrics registered");
+    let http_metrics = HttpMetrics::register(&registry).expect("http metrics registered");
 
     preflight(root)?;
 
