@@ -226,6 +226,23 @@ pub fn register_process_metrics(_registry: &Registry) -> prometheus::Result<()> 
     Ok(())
 }
 
+pub fn register_build_info_metrics(registry: &Registry) -> prometheus::Result<()> {
+    let opts =
+        Opts::new("build_info", "Build information about the server").namespace("outpack_server");
+    let labels = ["version", "revision", "rustc"];
+    let values = [
+        env!("CARGO_PKG_VERSION"),
+        env!("VERGEN_GIT_SHA"),
+        env!("VERGEN_RUSTC_SEMVER"),
+    ];
+
+    let metric = IntGaugeVec::new(opts, &labels)?;
+    metric.with_label_values(&values).set(1);
+
+    registry.register(Box::new(metric))?;
+    Ok(())
+}
+
 /// Render the metrics from a `prometheus::Registry` into an HTTP response.
 pub fn render(registry: Registry) -> impl IntoResponse {
     let mut buffer = vec![];
@@ -346,7 +363,7 @@ mod tests {
         // value while the request handlers are all executing.
         //
         // We use a pair of barriers: the first barrier is used to wait for all the request handlers
-        // to be executing, and the second barrier is used to stop the barriers from exiting. In
+        // to be executing, and the second barrier is used to stop the handlers from exiting. In
         // between those two barriers, the main task can read the metric and get an accurate value
         // out of it.
 
