@@ -141,10 +141,13 @@ async fn add_file(
     hash: extract::Path<String>,
     file: Upload,
 ) -> Result<OutpackSuccess<()>, OutpackError> {
-    store::put_file(&root, file, &hash)
-        .await
-        .map_err(OutpackError::from)
-        .map(OutpackSuccess::from)
+    tokio::task::spawn_blocking(move || {
+        store::put_file(&root, file, &hash)
+            .map_err(OutpackError::from)
+            .map(OutpackSuccess::from)
+    })
+    .await
+    .unwrap()
 }
 
 async fn add_packet(
@@ -159,17 +162,25 @@ async fn add_packet(
 }
 
 async fn git_fetch(root: State<PathBuf>) -> Result<OutpackSuccess<()>, OutpackError> {
-    git::git_fetch(&root)
-        .map_err(OutpackError::from)
-        .map(OutpackSuccess::from)
+    tokio::task::spawn_blocking(move || {
+        git::git_fetch(&root)
+            .map_err(OutpackError::from)
+            .map(OutpackSuccess::from)
+    })
+    .await
+    .unwrap()
 }
 
 async fn git_list_branches(
     root: State<PathBuf>,
 ) -> Result<OutpackSuccess<git::BranchResponse>, OutpackError> {
-    git::git_list_branches(&root)
-        .map_err(OutpackError::from)
-        .map(OutpackSuccess::from)
+    tokio::task::spawn_blocking(move || {
+        git::git_list_branches(&root)
+            .map_err(OutpackError::from)
+            .map(OutpackSuccess::from)
+    })
+    .await
+    .unwrap()
 }
 
 #[derive(Serialize, Deserialize)]

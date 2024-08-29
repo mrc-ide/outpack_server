@@ -264,8 +264,8 @@ mod tests {
 
         let total_size = data1.len() + data2.len();
 
-        put_file(&root, data1, &hash1).await.unwrap();
-        put_file(&root, data2, &hash2).await.unwrap();
+        put_file(&root, data1, &hash1).unwrap();
+        put_file(&root, data2, &hash2).unwrap();
 
         collector.update().unwrap();
         assert_eq!(collector.files_total.get(), 2);

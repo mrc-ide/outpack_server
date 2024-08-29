@@ -553,10 +553,7 @@ async fn missing_files_validates_request_body() {
 async fn can_post_file() {
     let mut client = get_default_client();
     let content = "test";
-    let hash = format!(
-        "sha256:{:x}",
-        Sha256::new().chain_update(content).finalize()
-    );
+    let hash = format!("sha256:{:x}", Sha256::digest(content));
     let response = client
         .post(
             format!("/file/{}", hash),
@@ -618,10 +615,7 @@ async fn can_post_metadata() {
                                 "orderly.R"
                               ]
                             }"#;
-    let hash = format!(
-        "sha256:{:x}",
-        Sha256::new().chain_update(content).finalize()
-    );
+    let hash = format!("sha256:{:x}", Sha256::digest(content));
     let response = client
         .post(format!("/packet/{}", hash), mime::TEXT_PLAIN_UTF_8, content)
         .await;

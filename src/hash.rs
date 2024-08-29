@@ -1,7 +1,7 @@
+use digest::Digest;
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use sha1::Digest;
 use std::fmt;
 use std::fmt::LowerHex;
 use std::path::Path;
@@ -117,20 +117,37 @@ fn hex_string<T: LowerHex>(digest: T) -> String {
     format!("{:x}", digest)
 }
 
-pub fn hash_data(data: &[u8], algorithm: HashAlgorithm) -> Hash {
+fn hash_stream_impl<D>(mut stream: impl std::io::Read) -> Result<String, std::io::Error>
+where
+    D: Digest + std::io::Write,
+    digest::Output<D>: LowerHex,
+{
+    let mut hasher = D::new();
+    std::io::copy(&mut stream, &mut hasher)?;
+    Ok(hex_string(hasher.finalize()))
+}
+
+pub fn hash_stream(
+    stream: impl std::io::Read,
+    algorithm: HashAlgorithm,
+) -> Result<Hash, std::io::Error> {
     let value: String = match algorithm {
-        HashAlgorithm::Md5 => hex_string(md5::compute(data)),
-        HashAlgorithm::Sha1 => hex_string(sha1::Sha1::new().chain_update(data).finalize()),
-        HashAlgorithm::Sha256 => hex_string(sha2::Sha256::new().chain_update(data).finalize()),
-        HashAlgorithm::Sha384 => hex_string(sha2::Sha384::new().chain_update(data).finalize()),
-        HashAlgorithm::Sha512 => hex_string(sha2::Sha512::new().chain_update(data).finalize()),
+        HashAlgorithm::Md5 => hash_stream_impl::<md5::Md5>(stream)?,
+        HashAlgorithm::Sha1 => hash_stream_impl::<sha1::Sha1>(stream)?,
+        HashAlgorithm::Sha256 => hash_stream_impl::<sha2::Sha256>(stream)?,
+        HashAlgorithm::Sha384 => hash_stream_impl::<sha2::Sha384>(stream)?,
+        HashAlgorithm::Sha512 => hash_stream_impl::<sha2::Sha512>(stream)?,
     };
-    Hash { algorithm, value }
+    Ok(Hash { algorithm, value })
+}
+
+pub fn hash_data(data: &[u8], algorithm: HashAlgorithm) -> Hash {
+    hash_stream(data, algorithm).expect("reading from memory cannot fail")
 }
 
 pub fn hash_file(path: &Path, algorithm: HashAlgorithm) -> Result<Hash, std::io::Error> {
-    let bytes = std::fs::read(path)?;
-    Ok(hash_data(&bytes, algorithm))
+    let file = std::fs::File::open(path)?;
+    hash_stream(file, algorithm)
 }
 
 pub fn validate_hash(found: &Hash, expected: &Hash) -> Result<(), HashError> {
@@ -149,7 +166,6 @@ pub fn validate_hash_data(data: &[u8], expected: &str) -> Result<(), HashError> 
     validate_hash(&hash_data(data, expected.algorithm), &expected)
 }
 
-// This is not yet a streaming hash, which can be done!
 pub fn validate_hash_file(path: &Path, expected: &str) -> Result<(), HashError> {
     let expected: Hash = expected.parse()?;
     validate_hash(&hash_file(path, expected.algorithm)?, &expected)

@@ -18,7 +18,7 @@ pub fn file_path(root: &Path, hash: &str) -> io::Result<PathBuf> {
 
 pub fn file_exists(root: &Path, hash: &str) -> io::Result<bool> {
     let path = file_path(root, hash)?;
-    Ok(fs::metadata(path).is_ok())
+    Ok(std::fs::metadata(path).is_ok())
 }
 
 pub fn get_missing_files(root: &Path, wanted: &[String]) -> io::Result<Vec<String>> {
@@ -32,20 +32,20 @@ pub fn get_missing_files(root: &Path, wanted: &[String]) -> io::Result<Vec<Strin
         .collect()
 }
 
-pub async fn put_file(root: &Path, file: impl Into<Upload>, hash: &str) -> io::Result<()> {
+pub fn put_file(root: &Path, file: impl Into<Upload>, hash: &str) -> io::Result<()> {
     let temp_dir = tempdir_in(root)?;
     let temp_path = temp_dir.path().join("data");
 
-    file.into().persist(&temp_path).await?;
+    file.into().persist(&temp_path)?;
 
     hash::validate_hash_file(&temp_path, hash).map_err(hash::hash_error_to_io_error)?;
+
     let path = file_path(root, hash)?;
     if !file_exists(root, hash)? {
         fs::create_dir_all(path.parent().unwrap())?;
-        fs::rename(temp_path, path).map(|_| ())
-    } else {
-        Ok(())
+        fs::rename(temp_path, path)?;
     }
+    Ok(())
 }
 
 pub fn enumerate_files(root: &Path) -> impl Iterator<Item = DirEntry> {
@@ -87,48 +87,48 @@ mod tests {
         assert_eq!(res.unwrap_err().to_string(), "Invalid hash format 'sha256'")
     }
 
-    #[tokio::test]
-    async fn put_file_is_idempotent() {
+    #[test]
+    fn put_file_is_idempotent() {
         let root = get_temp_outpack_root();
         let data = b"Testing 123.";
         let hash = hash_data(data, HashAlgorithm::Sha256);
         let hash_str = hash.to_string();
 
-        let res = put_file(&root, data, &hash.to_string()).await;
+        let res = put_file(&root, data, &hash.to_string());
         let expected = file_path(&root, &hash_str).unwrap();
         let expected = expected.to_str().unwrap();
         assert!(res.is_ok());
         assert_eq!(fs::read(expected).unwrap(), data);
 
-        let res = put_file(&root, data, &hash_str).await;
+        let res = put_file(&root, data, &hash_str);
         println!("{:?}", res);
         assert!(res.is_ok());
     }
 
-    #[tokio::test]
-    async fn put_file_validates_hash_format() {
+    #[test]
+    fn put_file_validates_hash_format() {
         let root = get_temp_outpack_root();
         let data = b"Testing 123.";
-        let res = put_file(&root, data, "badhash").await;
+        let res = put_file(&root, data, "badhash");
         assert_eq!(
             res.unwrap_err().to_string(),
             "Invalid hash format 'badhash'"
         );
     }
 
-    #[tokio::test]
-    async fn put_file_validates_hash_match() {
+    #[test]
+    fn put_file_validates_hash_match() {
         let root = get_temp_outpack_root();
         let data = b"Testing 123.";
-        let res = put_file(&root, data, "md5:abcde").await;
+        let res = put_file(&root, data, "md5:abcde");
         assert_eq!(
             res.unwrap_err().to_string(),
             "Expected hash 'md5:abcde' but found 'md5:6df8571d7b178e6fbb982ad0f5cd3bc1'"
         );
     }
 
-    #[tokio::test]
-    async fn enumerate_files_works() {
+    #[test]
+    fn enumerate_files_works() {
         let root = get_temp_outpack_root();
         let files: Vec<_> = enumerate_files(&root)
             .map(|entry| entry.file_name().to_owned())
