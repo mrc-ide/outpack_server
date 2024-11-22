@@ -121,14 +121,20 @@ e.g. `/packit/metadata?known_since=1683117048`.
         {
             "id": "20220812-155808-c873e405",
             "name": "depends",
-            "custom": { "orderly": { "display": "Report with dependencies" }}
-            "parameters": null
+            "parameters": null,
+            "time": {
+              "start": 1722268521.089,
+              "end": 1722268521.1252
+            }
         },
         {
             "id": "20220812-155808-d5747caf",
             "name": "params",
-            "custom": { "orderly": { "display": "Report with parameters" }},
-            "parameters": { "alpha": 1 }
+            "parameters": { "alpha": 1 },
+            "time": {
+              "start": 1724957680.4807,
+              "end": 1724957680.6728
+            }
         }
     ]
 }
