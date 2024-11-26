@@ -278,6 +278,13 @@ async fn can_list_metadata() {
         1503074938.2232
     );
     assert_eq!(
+        entries[0].get("custom").unwrap().as_object().unwrap()
+            .get("orderly").unwrap().as_object().unwrap()
+            .get("artefacts").unwrap().as_array().unwrap()[3]
+            .get("description").unwrap().as_str().unwrap(),
+        "Projected Coverage for routine immunisation in PINE countries"
+    );
+    assert_eq!(
         entries[1].get("id").unwrap().as_str().unwrap(),
         "20170818-164847-7574883b"
     );
