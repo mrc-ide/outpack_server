@@ -50,7 +50,7 @@ Run all tests with `cargo test`.
 ## API
 ### GET /
 
-```
+```json
 {
    "status": "succcess",
    "data": {
@@ -66,17 +66,17 @@ Returns hash of all current packet ids, ordered alphanumerically and concatenate
 in the `outpack` config, unless a query parameter specifying an alternative is passed: 
 e.g. `/checksum?alg=md5`. 
 
-```
+```json
 {
    "status": "succcess",
-   "data": "md5:117723186364b4b409081b1bd347d406"
+   "data": "md5:117723186364b4b409081b1bd347d406",
    "errors": null
 }
 ```
 
 ### GET /metadata/list
 
-```
+```json
 {
     "status": "success",
     "errors": null,
@@ -113,7 +113,7 @@ from which to return results. This will filter packets by the `time` property of
 location metadata, i.e. the point at which they were inserted into the index.
 e.g. `/packit/metadata?known_since=1683117048`. 
 
-```
+```json
 {
     "status": "success",
     "errors": null,
@@ -121,14 +121,22 @@ e.g. `/packit/metadata?known_since=1683117048`.
         {
             "id": "20220812-155808-c873e405",
             "name": "depends",
-            "custom": { "orderly": { "display": "Report with dependencies" }}
-            "parameters": null
+            "parameters": null,
+            "time": {
+              "end": 1503074545.8687,
+              "start": 1503074545.8687
+            },
+            "custom": { "orderly": { "description": { "display": "Report with dependencies" }}},
         },
         {
             "id": "20220812-155808-d5747caf",
             "name": "params",
-            "custom": { "orderly": { "display": "Report with parameters" }},
-            "parameters": { "alpha": 1 }
+            "parameters": { "alpha": 1 },
+            "time": {
+              "start": 1722267993.0676,
+              "end": 1722267993.0971
+            },
+            "custom": { "orderly": { "description": { "display": "Report with parameters" }}},
         }
     ]
 }
@@ -137,7 +145,7 @@ e.g. `/packit/metadata?known_since=1683117048`.
 
 ### GET /metadata/\<id\>/json
 
-```
+```json
 {
   "status": "success",
   "errors": null,
@@ -223,7 +231,7 @@ Given a list of ids, returns those that are missing in the current root. If `unp
 returns missing unpacked packets, otherwise just looks at missing metadata. 
 
 #### Response
-```
+```json
 {
   "status": "success",
   "errors": null,
@@ -246,7 +254,7 @@ returns missing unpacked packets, otherwise just looks at missing metadata.
 Given a list of file hashes, returns those that are missing in the current root.
 
 #### Response
-```
+```json
 {
   "status": "success",
   "errors": null,
@@ -265,7 +273,7 @@ The file contents should be written directly to the request body.
 
 #### Response
 
-```
+```json
 {
   "status": "success",
   "errors": null,
@@ -284,7 +292,7 @@ The metadata should be written directly to the request body.
 
 #### Response
 
-```
+```json
 {
   "status": "success",
   "errors": null,
@@ -302,7 +310,7 @@ Returns an array of branches with their `name`, `commit_hash` (where branch poin
 
 #### Response
 
-```
+```json
 {
     "status": "success",
     "data": {

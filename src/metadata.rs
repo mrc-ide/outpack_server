@@ -19,6 +19,7 @@ pub struct PackitPacket {
     pub name: String,
     pub parameters: Option<HashMap<String, serde_json::Value>>,
     pub time: PacketTime,
+    pub custom: Option<serde_json::Value>,
 }
 
 impl PackitPacket {
@@ -28,6 +29,7 @@ impl PackitPacket {
             name: packet.name.to_string(),
             parameters: packet.parameters.clone(),
             time: packet.time.clone(),
+            custom: packet.custom.clone(),
         }
     }
 }
