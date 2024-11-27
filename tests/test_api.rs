@@ -278,23 +278,7 @@ async fn can_list_metadata() {
         1503074938.2232
     );
     assert_eq!(
-        entries[0]
-            .get("custom")
-            .unwrap()
-            .as_object()
-            .unwrap()
-            .get("orderly")
-            .unwrap()
-            .as_object()
-            .unwrap()
-            .get("artefacts")
-            .unwrap()
-            .as_array()
-            .unwrap()[3]
-            .get("description")
-            .unwrap()
-            .as_str()
-            .unwrap(),
+        entries[0]["custom"]["orderly"]["artefacts"][3]["description"],
         "Projected Coverage for routine immunisation in PINE countries"
     );
     assert_eq!(
