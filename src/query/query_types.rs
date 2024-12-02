@@ -27,7 +27,7 @@ pub enum TestValue<'a> {
     Literal(Literal<'a>),
 }
 
-impl<'a> PartialOrd for Literal<'a> {
+impl PartialOrd for Literal<'_> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         match (self, other) {
             (Literal::Number(num_1), Literal::Number(num_2)) => num_1.partial_cmp(num_2),
