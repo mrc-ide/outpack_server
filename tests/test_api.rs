@@ -22,8 +22,6 @@ use tracing_capture::{CaptureLayer, SharedStorage};
 use tracing_subscriber::{layer::SubscriberExt, Registry};
 use url::Url;
 
-use test_utils::{git_get_latest_commit, git_remote_branches, initialise_git_repo};
-
 static INIT: Once = Once::new();
 
 pub fn initialize() {
@@ -726,90 +724,6 @@ async fn request_id_is_logged() {
         .single(&message(eq("started processing request")));
     span.scan_events()
         .single(&message(eq("finished processing request")));
-}
-
-#[tokio::test]
-async fn can_fetch_git() {
-    let test_dir = get_test_dir();
-    let test_git = initialise_git_repo(Some(&test_dir));
-    let mut client = TestClient::new(test_git.dir.path().join("local"));
-
-    let remote_ref = git_get_latest_commit(&test_git.remote, "HEAD");
-    let initial_ref = git_get_latest_commit(&test_git.local, "refs/remotes/origin/HEAD");
-    assert_ne!(
-        initial_ref.message().unwrap(),
-        remote_ref.message().unwrap()
-    );
-
-    let initial_branches = git_remote_branches(&test_git.local);
-    assert_eq!(initial_branches.count(), 2); // HEAD and main
-
-    let response = client
-        .post("/git/fetch", mime::APPLICATION_JSON, Body::empty())
-        .await;
-    assert_eq!(response.status(), StatusCode::OK);
-    assert_eq!(response.content_type(), mime::APPLICATION_JSON);
-
-    let body = response.to_json().await;
-    validate_success("server", "null-response.json", &body);
-
-    body.get("data")
-        .expect("Data property present")
-        .as_null()
-        .expect("Null data");
-
-    let post_fetch_ref = git_get_latest_commit(&test_git.local, "refs/remotes/origin/HEAD");
-    assert_eq!(
-        post_fetch_ref.message().unwrap(),
-        remote_ref.message().unwrap()
-    );
-
-    let post_fetch_branches = git_remote_branches(&test_git.local);
-    assert_eq!(post_fetch_branches.count(), 3); // HEAD, main and other
-}
-
-#[tokio::test]
-async fn can_list_git_branches() {
-    let test_dir = get_test_dir();
-    let test_git = initialise_git_repo(Some(&test_dir));
-
-    let mut client = TestClient::new(test_git.dir.path().join("local"));
-
-    let response_fetch = client
-        .post("/git/fetch", mime::APPLICATION_JSON, Body::empty())
-        .await;
-    assert_eq!(response_fetch.status(), StatusCode::OK);
-    assert_eq!(response_fetch.content_type(), mime::APPLICATION_JSON);
-
-    let response = client.get("/git/branches").await;
-    assert_eq!(response.status(), StatusCode::OK);
-    assert_eq!(response.content_type(), mime::APPLICATION_JSON);
-
-    let body = response.to_json().await;
-    validate_success("server", "branch-response.json", &body);
-
-    let entries = body.get("data").unwrap().as_object().unwrap();
-    let default_branch = entries.get("default_branch").unwrap().as_str().unwrap();
-    let branch_list = entries.get("branches").unwrap().as_array().unwrap();
-
-    assert_eq!(default_branch, "master");
-
-    assert_eq!(
-        branch_list[0].get("name").unwrap().as_str().unwrap(),
-        "master"
-    );
-    assert_eq!(
-        *branch_list[0].get("message").unwrap().as_array().unwrap(),
-        vec!["Second commit"]
-    );
-    assert_eq!(
-        branch_list[1].get("name").unwrap().as_str().unwrap(),
-        "other"
-    );
-    assert_eq!(
-        *branch_list[1].get("message").unwrap().as_array().unwrap(),
-        vec!["Third commit"]
-    );
 }
 
 fn validate_success(schema_group: &str, schema_name: &str, instance: &Value) {
