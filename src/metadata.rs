@@ -135,7 +135,7 @@ pub fn get_metadata_from_date(root_path: &Path, from: Option<f64>) -> io::Result
                     location_meta
                         .iter()
                         .find(|&e| e.packet == entry.file_name().into_string().unwrap())
-                        .map_or(false, |e| e.time > time)
+                        .is_some_and(|e| e.time > time)
                 })
                 .map(|entry| read_metadata(entry.path()))
                 .collect::<io::Result<Vec<Packet>>>()?
