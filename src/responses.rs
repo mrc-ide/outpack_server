@@ -97,6 +97,7 @@ impl axum::response::IntoResponse for OutpackError {
             Some(ErrorKind::NotFound) => StatusCode::NOT_FOUND,
             Some(ErrorKind::InvalidInput) => StatusCode::BAD_REQUEST,
             Some(ErrorKind::UnexpectedEof) => StatusCode::BAD_REQUEST,
+            Some(ErrorKind::AlreadyExists) => StatusCode::CONFLICT,
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         };
 

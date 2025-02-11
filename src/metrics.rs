@@ -259,7 +259,7 @@ mod tests {
     use super::*;
     use crate::hash::hash_data;
     use crate::hash::HashAlgorithm;
-    use crate::metadata::{add_metadata, add_packet};
+    use crate::metadata::add_packet;
     use crate::store::put_file;
     use crate::test_utils::tests::{get_empty_outpack_root, start_packet};
 
@@ -307,18 +307,20 @@ mod tests {
         let root = get_empty_outpack_root();
         let collector = RepositoryMetrics::new(&root);
 
-        // Create two different packets.
-        // One of them is actually added to the repository.
-        // We have the metadata for the second one, but it is missing from the repo.
         let (_, packet1, hash1) = start_packet("hello").finish();
         let (_, packet2, hash2) = start_packet("hello").finish();
 
         add_packet(&root, &packet1, &hash1).unwrap();
-        add_metadata(&root, &packet2, &hash2).unwrap();
+
+        collector.update().unwrap();
+        assert_eq!(collector.metadata_total.get(), 1);
+        assert_eq!(collector.packets_total.get(), 1);
+
+        add_packet(&root, &packet2, &hash2).unwrap();
 
         collector.update().unwrap();
         assert_eq!(collector.metadata_total.get(), 2);
-        assert_eq!(collector.packets_total.get(), 1);
+        assert_eq!(collector.packets_total.get(), 2);
     }
 
     #[tokio::test]
