@@ -49,10 +49,10 @@ jobs:
         run: |
           python -m build --sdist
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           if-no-files-found: error
-          name: python-artifacts
+          name: python-artifacts-sdist
           path: dist
 
   build-wheels:
@@ -96,10 +96,10 @@ jobs:
               fi
             fi
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           if-no-files-found: error
-          name: python-artifacts
+          name: python-artifacts-wheel-${{ matrix.config.os }}-${{  matrix.config.target }}
           path: dist
 
   # This assumes a PyPI Trusted Publisher has been configure for the `outpack_query_parser` package.
@@ -119,9 +119,10 @@ jobs:
       id-token: write
     steps:
       - name: Download all the dists
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
-          name: python-artifacts
-          path: dist/
+          pattern: python-artifacts-*
+          path: dist
+          merge-multiple: true
       - name: Publish distribution to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1

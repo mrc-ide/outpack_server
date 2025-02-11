@@ -9,8 +9,7 @@ lazy_static! {
 }
 
 pub fn is_packet(name: &OsString) -> bool {
-    let o = name.to_str();
-    o.map_or(false, is_packet_str)
+    name.to_str().is_some_and(is_packet_str)
 }
 
 pub fn is_packet_str(name: &str) -> bool {
