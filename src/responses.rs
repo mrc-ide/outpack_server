@@ -56,16 +56,6 @@ impl From<JsonRejection> for OutpackError {
     }
 }
 
-impl From<git2::Error> for OutpackError {
-    fn from(e: git2::Error) -> Self {
-        OutpackError {
-            error: e.message().to_string(),
-            detail: format!("{:?}", e.code()),
-            kind: Some(std::io::ErrorKind::Other),
-        }
-    }
-}
-
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SuccessResponse<T> {
     pub status: String,

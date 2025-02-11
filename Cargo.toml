@@ -37,7 +37,6 @@ tower = "0.4.13"
 mime = "0.3.17"
 digest = "0.10.7"
 md-5 = "0.10.6"
-git2 = { version = "0.19.0" }
 
 [dev-dependencies]
 assert_cmd = "2.0.6"
@@ -49,7 +48,6 @@ tar = "0.4.38"
 chrono = "0.4.33"
 rand = "0.8.5"
 tracing-capture = "0.1.0"
-test-utils = { path = "test-utils" }
 
 [build-dependencies]
 vergen-git2 = { version = "1.0.0", features = ["rustc"] }
@@ -57,4 +55,3 @@ anyhow = "1.0.75"
 
 [features]
 python = ["dep:pyo3"]
-openssl-vendored = ["git2/vendored-openssl"]

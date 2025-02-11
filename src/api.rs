@@ -14,6 +14,7 @@ use tower_http::catch_panic::CatchPanicLayer;
 use tower_http::request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer};
 use tower_http::trace::TraceLayer;
 
+use crate::config;
 use crate::hash;
 use crate::location;
 use crate::metadata;
@@ -24,7 +25,6 @@ use crate::outpack_file::OutpackFile;
 use crate::responses::{OutpackError, OutpackSuccess};
 use crate::store;
 use crate::upload::{Upload, UploadLayer};
-use crate::{config, git};
 
 type OutpackResult<T> = Result<OutpackSuccess<T>, OutpackError>;
 
@@ -163,28 +163,6 @@ async fn add_packet(
         .map(OutpackSuccess::from)
 }
 
-async fn git_fetch(root: State<PathBuf>) -> Result<OutpackSuccess<()>, OutpackError> {
-    tokio::task::spawn_blocking(move || {
-        git::git_fetch(&root)
-            .map_err(OutpackError::from)
-            .map(OutpackSuccess::from)
-    })
-    .await
-    .unwrap()
-}
-
-async fn git_list_branches(
-    root: State<PathBuf>,
-) -> Result<OutpackSuccess<git::BranchResponse>, OutpackError> {
-    tokio::task::spawn_blocking(move || {
-        git::git_list_branches(&root)
-            .map_err(OutpackError::from)
-            .map(OutpackSuccess::from)
-    })
-    .await
-    .unwrap()
-}
-
 #[derive(Serialize, Deserialize)]
 struct Ids {
     ids: Vec<String>,
@@ -266,8 +244,6 @@ pub fn api(root: &Path) -> anyhow::Result<Router> {
         .route("/packit/metadata", get(get_metadata_since))
         .route("/file/:hash", get(get_file).post(add_file))
         .route("/packet/:hash", post(add_packet))
-        .route("/git/fetch", post(git_fetch))
-        .route("/git/branches", get(git_list_branches))
         .route("/metrics", get(|| async move { metrics::render(registry) }))
         .fallback(not_found)
         .with_state(root.to_owned());

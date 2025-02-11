@@ -16,9 +16,5 @@ do
     fi
 done
 
-# git2 errors as the git repository mounted is not owned by
-# us, we need to declare it a safe directory to ignore ownership
-git config --global --add safe.directory /outpack
-
 echo "Found outpack root; starting server"
 outpack start-server --root /outpack
