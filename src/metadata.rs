@@ -251,34 +251,22 @@ fn check_missing_dependencies(root: &Path, packet: &Packet) -> Result<(), io::Er
     Ok(())
 }
 
-fn add_parsed_metadata(root: &Path, data: &str, packet: &Packet, hash: &str) -> io::Result<()> {
-    hash::validate_hash_data(data.as_bytes(), hash).map_err(hash::hash_error_to_io_error)?;
-    let path = get_path(root, &packet.id);
-    if !path.exists() {
-        fs::File::create(&path)?;
-        fs::write(path, data)?;
-    }
-    Ok(())
-}
-
-/// Add metadata to the repository.
-#[cfg(test)] // Only used from tests at the moment.
-pub fn add_metadata(root: &Path, data: &str, hash: &hash::Hash) -> io::Result<()> {
-    let packet: Packet = serde_json::from_str(data)?;
-    add_parsed_metadata(root, data, &packet, &hash.to_string())
-}
-
 /// Add a packet to the repository.
 ///
 /// The packet's files and dependencies must already be present in the repository.
+///
+/// Returns an error if a packet with the same ID but different metadata hash exists in the
+/// repository.
 pub fn add_packet(root: &Path, data: &str, hash: &hash::Hash) -> io::Result<()> {
     let packet: Packet = serde_json::from_str(data)?;
     let hash_str = hash.to_string();
 
+    hash::validate_hash_data(data.as_bytes(), &hash_str).map_err(hash::hash_error_to_io_error)?;
+
     check_missing_files(root, &packet)?;
     check_missing_dependencies(root, &packet)?;
 
-    add_parsed_metadata(root, data, &packet, &hash.to_string())?;
+    utils::write_file_idempotent(&get_path(root, &packet.id), data.as_bytes())?;
 
     let time = SystemTime::now();
     location::mark_packet_known(&packet.id, "local", &hash_str, time, root)?;
@@ -486,6 +474,56 @@ mod tests {
     }
 
     #[test]
+    fn add_packet_detects_conflict() {
+        // Same contents, but different timestamps
+        let data1 = r#"{
+            "schema_version": "0.0.1",
+            "name": "computed-resource",
+            "id": "20230427-150828-68772cee",
+            "time": {
+              "start": 1680000000.0000,
+              "end": 1680001000.0000
+            },
+            "parameters": null,
+            "files": [],
+            "depends": [],
+            "script": [
+              "orderly.R"
+            ]
+        }"#;
+        let data2 = r#"{
+            "schema_version": "0.0.1",
+            "name": "computed-resource",
+            "id": "20230427-150828-68772cee",
+            "time": {
+              "start": 1690000000.0000,
+              "end": 1690001000.0000
+            },
+            "parameters": null,
+            "files": [],
+            "depends": [],
+            "script": [
+              "orderly.R"
+            ]
+        }"#;
+
+        let hash1 = hash::hash_data(data1.as_bytes(), hash::HashAlgorithm::Sha256);
+        let hash2 = hash::hash_data(data2.as_bytes(), hash::HashAlgorithm::Sha256);
+
+        assert_ne!(hash1, hash2);
+
+        let root = get_temp_outpack_root();
+        add_packet(&root, data1, &hash1).unwrap();
+
+        let error = add_packet(&root, data2, &hash2).unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::AlreadyExists);
+
+        // Check that the metadata did not get overwritten.
+        let packet = get_metadata_text(&root, "20230427-150828-68772cee").unwrap();
+        assert_eq!(packet, data1);
+    }
+
+    #[test]
     fn imported_metadata_is_added_to_local_location() {
         let data = r#"{
                              "schema_version": "0.0.1",
@@ -519,21 +557,6 @@ mod tests {
         assert_eq!(entry.hash, hash.to_string());
         println!("time {} now {}", entry.time, time_as_num(now));
         assert!(entry.time >= time_as_num(now));
-    }
-
-    #[test]
-    fn can_add_metadata_with_missing_files() {
-        let root = get_temp_outpack_root();
-
-        let file_hash = "sha256:c7b512b2d14a7caae8968830760cb95980a98e18ca2c2991b87c71529e223164";
-
-        assert!(!file_exists(&root, file_hash).unwrap());
-
-        let (_, metadata, hash) = start_packet("data")
-            .add_file("data.csv", file_hash, 51)
-            .finish();
-
-        add_metadata(&root, &metadata, &hash).unwrap();
     }
 
     #[test]
