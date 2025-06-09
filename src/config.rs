@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs;
 use std::io::Error;
 use std::path::Path;
@@ -60,7 +61,7 @@ impl Config {
         let local = Location {
             name: String::from("local"),
             loc_type: String::from("local"),
-            args: Empty {},
+            args: HashMap::new(),
         };
         let location: Vec<Location> = vec![local];
         Ok(Config { core, location })
