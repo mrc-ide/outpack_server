@@ -7,12 +7,21 @@ use std::result::Result;
 use crate::hash::HashAlgorithm;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
+pub struct Empty {}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct Location {
     // Practically, doing anything with locations (therefore needing
     // access to the "type" and "args" fields) is going to require we
     // know how to deserialise into a union type; for example
     // https://stackoverflow.com/q/66964692
+    //
+    // However, we need to support the 'local' type, which takes no
+    // arguments, so implement enough here to be able to write one.
     pub name: String,
+    #[serde(rename = "type")]
+    pub loc_type: String,
+    pub args: Empty,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
@@ -48,7 +57,12 @@ impl Config {
             use_file_store,
             require_complete_tree,
         };
-        let location: Vec<Location> = Vec::new();
+        let local = Location {
+            name: String::from("local"),
+            loc_type: String::from("local"),
+            args: Empty {},
+        };
+        let location: Vec<Location> = vec![local];
         Ok(Config { core, location })
     }
 }
@@ -86,6 +100,9 @@ mod tests {
     #[test]
     fn can_write_config() {
         let cfg = Config::new(None, true, true).unwrap();
+        assert_eq!(cfg.location.len(), 1);
+        assert_eq!(cfg.location[0].name, String::from("local"));
+        assert_eq!(cfg.location[0].loc_type, String::from("local"));
         let tmp = tempfile::TempDir::new().unwrap();
         let path = tmp.path();
         fs::create_dir_all(path.join(".outpack")).unwrap();
