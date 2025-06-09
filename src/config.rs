@@ -8,9 +8,6 @@ use std::result::Result;
 use crate::hash::HashAlgorithm;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
-pub struct Empty {}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct Location {
     // Practically, doing anything with locations (therefore needing
     // access to the "type" and "args" fields) is going to require we
