@@ -21,7 +21,7 @@ pub struct Location {
     pub name: String,
     #[serde(rename = "type")]
     pub loc_type: String,
-    pub args: Empty,
+    pub args: HashMap<String, serde_json::Value>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
@@ -101,8 +101,8 @@ mod tests {
     fn can_write_config() {
         let cfg = Config::new(None, true, true).unwrap();
         assert_eq!(cfg.location.len(), 1);
-        assert_eq!(cfg.location[0].name, String::from("local"));
-        assert_eq!(cfg.location[0].loc_type, String::from("local"));
+        assert_eq!(cfg.location[0].name, "local");
+        assert_eq!(cfg.location[0].loc_type, "local");
         let tmp = tempfile::TempDir::new().unwrap();
         let path = tmp.path();
         fs::create_dir_all(path.join(".outpack")).unwrap();
