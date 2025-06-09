@@ -10,12 +10,12 @@
     {
       "name": "local",
       "type": "local",
-      "args": []
+      "args": {}
     },
     {
       "name": "another",
       "type": "file",
-      "args": []
+      "args": {}
     }
   ]
 }
