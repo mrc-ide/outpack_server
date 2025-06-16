@@ -10,7 +10,7 @@
     {
       "name": "another",
       "type": "file",
-      "args": []
+      "args": {}
     }
   ]
 }
