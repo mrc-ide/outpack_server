@@ -35,7 +35,7 @@ outpack start-server --root <path>
 ## Usage of docker image
 
 ```
-docker run --name outpack_server -v /full/path/to/root:/outpack -p 8000:8000 -d mrcide/outpack_server:main
+docker run --name outpack_server -v /full/path/to/root:/outpack -p 8000:8000 -d ghcr.io/mrc-ide/outpack_server:main
 ```
 
 ## Schema
