@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -e
+
+if [[ ! -f /outpack/.outpack/config.json ]]; then
+    echo "Creating new outpack root"
+    outpack init --require-complete-tree --use-file-store /outpack
+fi
+exec outpack start-server --root /outpack
