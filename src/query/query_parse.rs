@@ -10,7 +10,7 @@ use crate::query::ParseError;
 #[grammar = "query/query.pest"]
 struct QueryParser;
 
-pub fn parse_query(query: &str) -> Result<QueryNode, ParseError> {
+pub fn parse_query(query: &str) -> Result<QueryNode<'_>, ParseError> {
     let pairs = QueryParser::parse(Rule::query, query)?;
     let node = parse_toplevel(get_first_inner_pair(pairs.peek().unwrap()))?;
     Ok(node)
@@ -177,7 +177,7 @@ fn unknown_infix_error(operator: Pair<Rule>) -> ParseError {
     .into()
 }
 
-fn get_string_inner(rule: Pair<Rule>) -> &str {
+fn get_string_inner(rule: Pair<'_, Rule>) -> &str {
     get_first_inner_pair(rule).as_str()
 }
 

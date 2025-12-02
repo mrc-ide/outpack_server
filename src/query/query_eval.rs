@@ -130,7 +130,7 @@ fn evaluate_lookup<'a>(
 }
 
 impl Packet {
-    pub fn lookup_value(&self, lookup: &PacketLookup) -> Option<Literal> {
+    pub fn lookup_value(&self, lookup: &PacketLookup) -> Option<Literal<'_>> {
         match lookup {
             PacketLookup::Id => Some(Literal::String(&self.id)),
             PacketLookup::Name => Some(Literal::String(&self.name)),
@@ -138,7 +138,7 @@ impl Packet {
         }
     }
 
-    pub fn get_parameter(&self, param_name: &str) -> Option<Literal> {
+    pub fn get_parameter(&self, param_name: &str) -> Option<Literal<'_>> {
         if let Some(params) = &self.parameters {
             match params.get(param_name)? {
                 JsonValue::Number(number) => Some(Literal::Number(number.as_f64()?)),

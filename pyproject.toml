@@ -1,6 +1,7 @@
 [project]
 name = "outpack_query_parser"
 readme = "README.python.md"
+dynamic = ["version"]
 
 [build-system]
 requires = ["maturin>=1.0,<2.0"]
