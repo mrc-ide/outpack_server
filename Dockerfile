@@ -1,14 +1,12 @@
-FROM rust:latest as builder
+FROM rust:latest AS builder
 WORKDIR /usr/src/outpack_server
 COPY . .
 RUN cargo install --locked --path .
 
 FROM debian:bookworm-slim
-
-RUN  apt-get -yq update && \
-     apt-get -yqq install openssh-client git
+RUN apt-get update && apt-get install -y tini
 
 COPY --from=builder /usr/local/cargo/bin/* /usr/local/bin/
-COPY start-with-wait /usr/local/bin
+COPY start /usr/local/bin
 EXPOSE 8000
-ENTRYPOINT ["start-with-wait"]
+ENTRYPOINT ["/usr/bin/tini", "--", "start"]
